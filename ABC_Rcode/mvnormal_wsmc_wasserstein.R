@@ -18,7 +18,7 @@ prefix <- ""
 #obsfile <- paste0(prefix, "mvnormaldata.d", d, ".n", nobservations, ".RData")
 #load(obsfile)
 
-obs <- t(matrix(read.table("data_1_200.txt")$V1))
+obs <- t(matrix(read.table("data_2_200.txt")$V1))
 
 # function to simulate data
 target$simulate <- function(theta){
@@ -30,7 +30,7 @@ wdistance <- get_transport_to_y(obs, p = p)
 param_algo <- list(nthetas = nparticles, nmoves = 1, proposal = mixture_rmixmod(),
                    minimum_diversity = 0.5, R = 2, maxtrials = 1e5)
 
-filename <- paste0(prefix, "mvnormalwsmc.d", d, ".n", nobservations, "outl",.1, ".wasserstein.RData")
+filename <- paste0(prefix, "mvnormalwsmc.d", d, ".n", nobservations, "outl",.2, ".wasserstein.RData")
 results <- wsmc(wdistance, target, param_algo, maxsimulation = 10^6, savefile = filename)
 load(filename)
 # results <- wsmc_continue(results, savefile = filename, maxsimulation = 800000)

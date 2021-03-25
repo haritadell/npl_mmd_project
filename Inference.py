@@ -14,6 +14,7 @@ import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
 import pandas as pd
+# testing
 #%% 
 # Import data from R
 #data = pyreadr.read_r('mvnormaldata.d1.n200.RData')
@@ -22,31 +23,31 @@ import pandas as pd
 #X = np.asarray(data['obs']).transpose() # shape (n,d)
 
 # Export data to use in R - Gaussian model
-#np.random.seed(11)
-#n = 200
-#d = 1
-#theta_star = np.ones(d)
-#s = 1
-#outl = 3
+np.random.seed(11)
+n = 200
+d = 2
+theta_star = np.ones(d)
+s = 1
+outl = 3
 #for i in range(outl):
 #    X = sample_gaussian_outl(n,d,s,theta_star, n_cont=i)
 #    np.savetext("data_{}_{}.txt".format(i,n))
-#X1 = sample_gaussian_outl(n,d,s,theta_star,n_cont=0) 
-#X2 = sample_gaussian_outl(n,d,s,theta_star,n_cont=1) 
-#X3 = sample_gaussian_outl(n,d,s,theta_star,n_cont=2) 
-#np.savetxt("data_0_{}.txt".format(n), X1)
-#np.savetxt("data_1.txt", X2)
-#np.savetxt("data_2.txt", X3)
+X1 = sample_gaussian_outl(n,d,s,theta_star,n_cont=0) 
+X2 = sample_gaussian_outl(n,d,s,theta_star,n_cont=1) 
+X3 = sample_gaussian_outl(n,d,s,theta_star,n_cont=2) 
+np.savetxt("data_0_{}.txt".format(n), X1)
+np.savetxt("data_1_{}.txt".format(n), X2)
+np.savetxt("data_2_{}.txt".format(n), X3)
 #%%
 # Export data to use in R - g-and-k model
-np.random.seed(11)
-outl = 3
-theta_star = np.array([3,1,1,-np.log(2)]) 
-n = 2**11
-d = 1
-for i in range(outl):
-    X = sample_gandk_outl(n,d,theta_star, n_cont=i)
-    np.savetxt("data_{}_{}_t.txt".format(i,n),X)
+#np.random.seed(11)
+#outl = 3
+#theta_star = np.array([3,1,1,-np.log(2)]) 
+#n = 2**11
+#d = 1
+#for i in range(outl):
+#    X = sample_gandk_outl(n,d,theta_star, n_cont=i)
+#    np.savetxt("data_{}_{}_t.txt".format(i,n),X)
 #X1 = sample_gandk_outl(n,d,theta_star,n_cont=0) 
 #X2 = sample_gandk_outl(n,d,theta_star,n_cont=1) 
 #X3 = sample_gandk_outl(n,d,theta_star,n_cont=2) 
@@ -56,21 +57,22 @@ for i in range(outl):
 #%%
 # Set parameters
 np.random.seed(11)
-n = 2**11
+n = 200
 m = 2**9
-d = 1  
-theta_star = np.array([3,1,1,-np.log(2)]) 
+d = 2
+#theta_star = np.array([3,1,1,-np.log(2)]) 
 #X = sample_gandk_outl(n,d,theta_star, n_cont=0)
 #np.savetxt("data_{}_{}_megalon.txt".format(0,n), X)
+theta_star = np.ones(d)
 s = 1  
-l = 2
+l = -1
 # dimensions of data
-p = 4
+p = 2
 B = 512
 outl = 1
 method = 'SGD'
-model_name = 'gandk'
-model = models.g_and_k_model(m,d)
+model_name = 'gaussian'
+model = models.gauss_model(m,d,s)
 #X1 = np.reshape(np.loadtxt('data_0_2048_new.txt'), (2048,1))
 #%% optimisation functions
 
@@ -94,7 +96,7 @@ def optim_gaus(X1,X2,X3,n,m,s,l,theta_star,d,p,B,outl,method,model_name,model):
         wll_sample = npl.wll
         #mmd_loss = npl.mmd_loss
         #np.savetxt("current_sample.txt", sample)
-        np.savetxt('outl_{}.txt'.format(n_cont), sample)
+        np.savetxt('outl_{}_t.txt'.format(n_cont), sample)
         #sample_mmd = np.mean(sample, axis=0)
         sample_mle = np.mean(X, axis=0)
         #sample_wll = np.mean(wll_sample, axis=0)
@@ -122,7 +124,7 @@ def optim_gandk(X1,X2,X3,n,m,s,l,theta_star,d,p,B,outl,method,model_name,model):
         npl.draw_samples()
         sample = npl.sample
         samples[n_cont,:,:] = sample
-        np.savetxt('outl_{}_gandk_g_2048_bfgs_l.txt'.format(n_cont+3), sample)
+        np.savetxt('outl_{}_ll.txt'.format(n_cont+3), sample)
     #thetas = npl.thetas
     #mmd_loss = npl.mmd_loss
         
@@ -135,12 +137,12 @@ def optim_gandk(X1,X2,X3,n,m,s,l,theta_star,d,p,B,outl,method,model_name,model):
 
 #%%
 #X1 = sample_gandk_outl(n,d,theta_star,n_cont=0) 
-X1 = np.reshape(np.loadtxt('data_0_2048_t.txt'), (n,1))
-X2 = np.reshape(np.loadtxt('data_1_2048_t.txt'), (n,1))
-X3 = np.reshape(np.loadtxt('data_2_2048_t.txt'), (n,1))
+X1 = np.reshape(np.loadtxt('data_0_200.txt'), (n,d))
+X2 = np.reshape(np.loadtxt('data_1_200.txt'), (n,d))
+X3 = np.reshape(np.loadtxt('data_2_200.txt'), (n,d))
     #%%
 # Optimise 
-results_gandk_g_new, samples_gandk_g_new = optim_gandk(X1,X2,X3,n,m,s,l,theta_star,d,p,B,2,method,model_name,model)
+results_gauss, samples_gauss = optim_gaus(X1,X2,X3,n,m,s,l,theta_star,d,p,B,3,method,model_name,model)
 #%%
 #np.savetxt(fname='res_500_gandk.txt', X=results_gandk.reshape((-1,3)))
 #np.savetxt(fname='sam_500_gandk.txt', X=samples_gandk[0,:,:])
