@@ -3,7 +3,6 @@
 """
 Created on Thu Mar  4 11:28:49 2021
 
-@author: HaritaDellaporta
 """
 
 from utils import k
@@ -13,6 +12,9 @@ import scipy.spatial.distance as distance
 from tqdm import tqdm
 from joblib import Parallel, delayed
 from scipy.optimize import minimize
+from scipy import stats
+import ot
+from autograd import grad
 
 # NPL class
 class npl():
@@ -26,7 +28,7 @@ class npl():
         p: number of unknown parameters
         l: lengthscale of gaussian kernel
         model: model in the form as in models.py
-        model-name: name set to 'gaussian' or 'gandk'
+        model-name: name set to 'gaussian' or 'gandk' or 'toggle_switch'
         method_gd: gradient-based optimisation method set to eithr 'SGD' or 'NSGD'
     """
     
@@ -55,14 +57,28 @@ class npl():
         weights = dirichlet.rvs(np.ones(self.n), size = 1, random_state = seed).flatten()  
        
         # compute weighted log-likelihood minimizer for Gaussian model
-        wll_j = self.WLL(self.X, weights)  
+        if self.model_name == 'gaussian':
+            wll_j = self.WLL(self.X, weights) 
+            was_j = self.minimise_wasserstein(self.X, weights)
+        else:
+            wll_j = 1 # dummy
+            was_j = 1 # dummy for now
         
         # compute MMD minimizer
         #theta_j, loss_j = self.minimise_MMD(self.X, weights) 
-        theta_j = self.minimise_MMD_(self.X, weights) 
-        loss_j = 1
+        theta_j = self.minimise_MMD_scipy(self.X, weights)  
+        loss_j = 1 # dummy
+        # compute loss 
+#        if self.model_name == 'gandk':
+#            sample, z = self.model.sample(theta_j)
+#        else:
+#            sample = self.model.sample(theta_j)
+#          
+#        kyy = k(sample,sample,self.l)[0]
+#        kxy = k(sample,self.X,self.l)[0]  
+#        loss_j = self.MMD_approx(1/self.n*np.ones(self.n),kxy,kyy)
         
-        return theta_j, wll_j, loss_j
+        return theta_j, wll_j, was_j, loss_j
         
     
     def draw_samples(self):
@@ -70,18 +86,22 @@ class npl():
         
         sample = np.zeros((self.B,self.p))
         wll = np.zeros((self.B,self.p))
-        mmd_loss = np.zeros((self.B,self.p))
+        mmd_loss = np.zeros((self.B))
+        was_sample = np.zeros((self.B,self.p))
         
         # Parallelize
-        temp = Parallel(n_jobs=-1, backend='multiprocessing', max_nbytes='50M')(delayed(self.draw_single_sample)(i) for i in tqdm(range(self.B)))
+        temp = Parallel(n_jobs=-1, backend='multiprocessing', max_nbytes=None,batch_size="auto")(delayed(self.draw_single_sample)(i) for i in tqdm(range(self.B)))
     
         for i in range(self.B):
             sample[i,:] = temp[i][0]
             wll[i,:] = temp[i][1]
-            mmd_loss[i,:] = temp[i][2]
-                    
+            was_sample[i,:] = temp[i][2]
+            mmd_loss[i] = temp[i][3]
+           
+                
         self.sample = np.array(sample)
         self.wll = np.array(wll)
+        self.was = np.array(was_sample)
         self.mmd_loss = np.array(mmd_loss)
     
     
@@ -144,13 +164,13 @@ class npl():
         return (2/(self.m*(self.m-1)))*sum1-(2/(self.m))*sum2
 
 
-    def minimise_MMD(self, data, weights, Nstep=5000, eta=0.1):
+    def minimise_MMD(self, data, weights, Nstep=10000, eta=0.1):
         """ Gradient-based optimization to minimize the MMD objective between 
         P^(j) for alpha=0 and P_\theta with
         Minibatch size = sample size = n, number of iterations = Nstep = 1000 and 
         step size = eta = 0.1"""
+        # So far this is for gaussian or gandk 
         
-        #theta = np.expand_dims(np.zeros(self.p),axis=0) # shape: (1,p) #np.mean(data)*np.ones(self.d)   # initialize with the MLE
         theta = 0.5*np.ones(self.p)
         t = 0
         gradient = 100
@@ -200,43 +220,40 @@ class npl():
         loss = self.MMD_approx(weights,kxy,kyy)
         return theta, loss
     
-    def minimise_MMD_(self, data, weights):
+    def minimise_MMD_scipy(self, data, weights):
         def MMD(theta):
-            np.random.seed(11)
+            #np.random.seed(11)   # set seed so that MMD and mmd_grad use the same sample (for the same theta) at each iteration of the optimisation step
             if self.model_name == 'gandk':
                 sample, z = self.model.sample(theta)
-                #grad_g = self.model.grad_generator(z, theta)
             else:
                 sample = self.model.sample(theta)
-                #grad_g = self.model.grad_generator(theta)
+          
             kyy, k1yy, k2yy = k(sample,sample,self.l)
-            kxy, k1xy = k(sample,data,self.l)[0:2]    #kyx
+            kxy, k1xy = k(sample,data,self.l)[0:2]    
         
             # first sum
             np.fill_diagonal(kyy, np.repeat(0,self.m)) # exclude k(y_i, y_i) (diagonal terms)
             sum1 = np.sum(kyy)
     
             # second sum
-            #sum2 = np.sum(kxy)
             sum2 = np.sum(kxy*weights)
     
             # third sum
             np.fill_diagonal(self.kxx, np.repeat(0,self.n))
-            #sum3 = np.sum(self.kxx)
             sum3 = np.sum(self.kxx*weights)
     
-            #return (1/(m*(m-1)))*sum1-(2/(m*n))*sum2+(1/(n*(n-1)))*sum3
+
             return (1/(self.m*(self.m-1)))*sum1-(2/(self.m))*sum2+(1/(self.n-1))*sum3
     
-        def mmd_grad(theta):
+        def mmd_grad(theta): # again so far I don't have grad for toggle switch
             np.random.seed(11)
-            #def grad_MMD(p,n,m,grad_g,weights,k1yy,k1xy):
             if self.model_name == 'gandk':
                     sample, z = self.model.sample(theta)
                     grad_g = self.model.grad_generator(z, theta)
             else:
                 sample = self.model.sample(theta)
                 grad_g = self.model.grad_generator(theta)
+            
             kyy, k1yy, k2yy = k(sample,sample,self.l)
             kxy, k1xy = k(sample,data,self.l)[0:2]    #kyx
             
@@ -253,20 +270,39 @@ class npl():
             # second sum
             for i in range(self.d):
                 k1xy[i,:,:] = k1xy[i,:,:]*weights
-            #k1xy[1,:,:] = k1xy[1,:,:]*weights
+            
             prod2 = np.squeeze(np.einsum('ilj,imjk->lmjk', grad_g, np.expand_dims(k1xy,axis=1)))
             if prod2.ndim==2:
                 sum2 = np.sum(prod2)
             else:
                 sum2 = np.einsum('ijk->i',prod2)
-    
-            #return (2/(m*(m-1)))*sum1-(2/(n*m))*sum2
+           
             return (2/(self.m*(self.m-1)))*sum1-(2/(self.m))*sum2
-    
-        optimization_result = minimize(MMD, 0.5*np.ones(self.p), 
-                               method= 'BFGS', options={'disp': True})
         
-         # jac=mmd_grad,
+        if self.model_name == 'gaussian':
+            x0 = np.mean(self.X, axis=0) # mle
+        elif self.model_name == 'gandk':
+            x0 = np.zeros(self.p)
+            x0[0] = np.median(self.X)
+            x0[1] = stats.iqr(self.X, interpolation = 'midpoint')/2
+            x0[2] = 0
+            x0[3] = 0
+        elif self.model_name == 'toggle_switch':
+            x0 = np.ones(self.p)
+            x0[0] = 20
+            x0[1] = 10
+            x0[2] = 2
+            x0[3] = 2
+            x0[4] = 250
+            x0[5] = 0
+            x0[6] = 0
+        
+        if self.model_name == 'toggle_switch':
+            #grad_mmd = grad(MMD)
+            optimization_result = minimize(MMD, x0 , method= 'Nelder-Mead', options={'disp': True})
+        else:
+            optimization_result = minimize(MMD, x0 ,  method= 'BFGS', options={'disp': False})
+        # bug: mmd_grad arg doesn't work for d=1 --- need to fix #jac=mmd_grad,
         
         # return the value at optimum
         return optimization_result.x
@@ -277,4 +313,20 @@ class npl():
         for i in range(self.n):
             theta += weights[i]*data[i] 
         return theta
+    
+    def minimise_wasserstein(self, data, weights):
+        def wasserstein(theta):
+            a = np.ones((self.m,)) / self.m 
+            b = weights #np.ones((self.n,)) / self.n
+            sample = self.model.sample(theta)
+         
+            M = ot.dist(sample, data, 'euclidean')
+
+            W = ot.emd2(a, b, M)
+            return W
+        
+        optimization_result = minimize(wasserstein, np.mean(data,axis=0), method= 'Powell', options={'disp': False, 'maxiter': 10000})
+     
+        # return the value at optimum
+        return optimization_result.x
     
