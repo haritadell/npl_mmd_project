@@ -3,13 +3,13 @@
 """
 Created on Fri Mar  5 17:57:30 2021
 
-@author: HaritaDellaporta
 
 Contains functions related to: Gaussian kernel and its derivatives, sampling from g-and-k and gaussian models using generators
 """
 
 import numpy as np
 import scipy.spatial.distance as distance
+from scipy import stats
 
 # Box-Muller transformation
 def boxmuller(unif1,unif2):
@@ -155,5 +155,62 @@ def sample_gandk_outl(n,d,theta, n_cont = 0):
     
     #outl = np.asmatrix(np.random.normal(loc=5,scale=1,size=cont_size)).transpose()
 
-    return np.asarray(x)   # need to return z as well?
+    return np.asarray(x)   
+
+def gen_togswitch(theta,uvals,T):
+    alpha1 = theta[0]
+    alpha2 = theta[1]
+    beta1 = theta[2]
+    beta2 = theta[3]
+    mu = theta[4]
+    sigma = theta[5]
+    gamma =  theta[6]
+    
+    n= uvals.shape[0]
+    u = np.zeros((n,T))
+    v = np.zeros((n,T))
+    u_new = np.zeros((n,T))
+    v_new = np.zeros((n,T))
+    phi_u_new = np.zeros((n,T))
+    phi_v_new = np.zeros((n,T))
+
+
+    u[:,0] = 10.
+    v[:,0] = 10.
+
+    for t in range(0,T-1):
+
+        u_new = u[:,t] +(alpha1/(1.+(v[:,t]**beta1)))-(1.+0.03*u[:,t])
+        phi_u_new = stats.norm.cdf(-2.*u_new)
+        u[:,t+1] = u_new+0.5*stats.norm.ppf(phi_u_new+uvals[:,t]*(1.-phi_u_new))
+
+        v_new = v[:,t] +(alpha2/(1.+(u[:,t]**beta2)))-(1.+0.03*v[:,t])
+        phi_v_new = stats.norm.cdf(-2.*v_new)
+        v[:,t+1] = v_new+0.5*stats.norm.ppf(phi_v_new+uvals[:,T+t]*(1.-phi_v_new))
+
+
+    yvals = (stats.norm.ppf(0.5+0.5*uvals[:,2*T])*(sigma**2)*(mu**2)*(u[:,T-1]**(-2.*gamma)))+(mu+u[:,T-1]) 
+
+    return(np.atleast_2d(yvals).T)
+    
+
+def sample_togswitch_outl(n,d,theta,T, n_cont = 0):
+    
+    cont_size = int(np.floor(int(n_cont)*5/100*n))
+    n_real = n - cont_size
+    
+    uvals = np.random.uniform(size=(n_real,(2*T)+1))
+    uvals_outl = np.random.uniform(size=(cont_size,(2*T)+1))
+    
+    if n_cont != 0:
+        #outl = gen_togswitch(theta, uvals_outl, T) + ???
+        sample = gen_togswitch(theta, uvals, T)
+        x = np.concatenate((sample, outl), axis=0)
+    else:
+        x = gen_togswitch(theta, uvals, T)
+        
+    return np.asarray(x)
+    
+
+
 
