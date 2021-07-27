@@ -292,7 +292,7 @@ class npl():
         opt_state = opt_init(params)
         itercount = itertools.count()
 
-        loss_and_grad_fn = vmap(value_and_grad(obj_fun, argnums=0), in_axes=(None, 0, None))
+        loss_and_grad_fn = vmap(value_and_grad(jit(obj_fun), argnums=0), in_axes=(None, 0, None))
         
         def step(step, opt_state, batches):
             value, grads = loss_and_grad_fn(get_params(opt_state), batches, batch_size)
