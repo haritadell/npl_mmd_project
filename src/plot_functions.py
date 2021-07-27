@@ -40,18 +40,18 @@ def plot_posterior_marginals(B,thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thet
     theta_data = np.reshape(theta_data,(n_cont*p,compare*B))
     df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(n_cont*p) }) 
     df_all['model'] =  model_name_data
-    fig, ax_array = plt.subplots(p, n_cont, figsize=(10,10))
+    fig, ax_array = plt.subplots(p, n_cont, figsize=(10,30))
     titles = ['{} % of outliers'.format(i*5) for i in range(n_cont)]
     
     for ax, i in zip(ax_array.flatten(), range(0, p * n_cont)):
         ax = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax, alpha=0.3,hue="model", multiple="layer", shade=True, common_norm=False)
         ax.set_xlabel('theta {}'.format(math.floor(i/n_cont)+1))
-        ax.set_title(titles[i%3])
-        ax.axvline(theta_star[math.floor(i/n_cont)], color='black')  #prepei na ftiaxw ta indexes 
-        
+        #ax.set_title(titles[i]) #i%3
+        ax.axvline(theta_star[i], color='black')  #prepei na ftiaxw ta indexes  #math.floor(i/n_cont)
+    fig.tight_layout(pad=0.4, w_pad=0.5, h_pad=1.0)
     if save_fig == True:
-        fig.savefig('posterior_marginal_plot_gauss_200_1.png')
-    fig.tight_layout()  
+        fig.savefig('posterior_marginal_plot_togswitch.png')
+      
     return fig, ax_array
 
 def plot_mse(thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thetas_npl_was, mse_MLE, theta_star, n_cont, gaussian=False, save_fig=False):
@@ -79,7 +79,7 @@ def plot_mse(thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thetas_npl_was, mse_ML
     #print(mse_ABC)
     #print(mse_MMD)
     #print(mse_WLL)
-    fig, ax_array = plt.subplots(p, 1, figsize=(10,20))
+    fig, ax_array = plt.subplots(p, 1, figsize=(5,10))
     if p>1:
         for j,ax in enumerate(ax_array):
             ax.plot(np.linspace(0,5*(n_cont-1),n_cont), mse_MMD[:,j], 'r-', label='NPL-MMD')
@@ -88,10 +88,10 @@ def plot_mse(thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thetas_npl_was, mse_ML
                 ax.plot(np.linspace(0,5*(n_cont-1),n_cont), mse_WLL[:,j], 'g-', label='NPL-WLL')
                 ax.plot(np.linspace(0,5*(n_cont-1),n_cont), mse_WAS[:,j], 'y-', label='NPL-WAS')
                 ax.plot(np.linspace(0,5*(n_cont-1),n_cont), mse_MLE[:,j], 'c-', label='MLE')
-            ax.legend(loc='best', ncol=1)
+            ax.legend(loc='best')
             #ax.get_frame().set_alpha(0.5)
-            ax.set_xlabel('Percentage of outliers',fontsize='x-large')
-            ax.set_ylabel('MSE',fontsize='x-large')
+            ax.set_xlabel("Percentage of outliers",fontsize='x-large')
+            ax.set_ylabel("MSE",fontsize='x-large')
             ax.set_title('theta {}'.format(j+1))
     else:
         ax_array.plot(np.linspace(0,5*(n_cont-1),n_cont), mse_MMD[:,j], 'r-', label='NPL-MMD')
@@ -106,7 +106,7 @@ def plot_mse(thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thetas_npl_was, mse_ML
         ax_array.set_ylabel('MSE',fontsize='x-large')
         ax_array.set_title('theta {}'.format(j+1))
     if save_fig == True:
-        fig.savefig('mse_plot_gauss_200_1.png')
+        fig.savefig('mse_gandk.png')
     fig.tight_layout() 
     return fig, ax_array
 

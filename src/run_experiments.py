@@ -5,7 +5,7 @@ Created on Thu Mar 25 18:02:42 2021
 
 """
 
-from utils import sample_gaussian_outl, sample_gandk_outl, sample_togswitch_outl
+from utils import sample_gaussian_outl, sample_gandk_outl, sample_togswitch_outl2
 from plot_functions import plot_posterior_marginals, plot_mse
 import NPL
 import models
@@ -13,34 +13,35 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 
+
 #%%
 # Set model 
-model_name = 'gaussian' # set to gaussian or gandk or toggle_switch
+model_name = 'toggle_switch' # set to gaussian or gandk or toggle_switch
 
 # Sample and save data
 np.random.seed(11)
-n = 200
+n = 2000
 d = 1
-theta_star = np.ones(d) #np.array([22,12,4,4.5,325,0.25,0.15])#np.ones(d) #np.array([3,1,1,-np.log(2)]) 
+theta_star = np.array([22,np.log(12),4,4.5,325.,np.log(0.25),0.15])   #np.ones(d) #np.array([22,12,4,4.5,325,0.25,0.15]) #np.array([3,1,1,-np.log(2)]) 
 s = 1 # std for gaussian model
 outl = 1 # number of different percentages of outliers to run for
-T = 300 # for toggle switch model
+T = 20 # for toggle switch model
 #%%
 for i in range(outl):
     if model_name == 'gaussian':
-        #X = sample_gaussian_outl(n,d,s,theta_star, n_cont=i)
-        X = np.random.gamma(10,0.5,n)   # misspecification case
+        X = sample_gaussian_outl(n,d,s,theta_star, n_cont=i)
+        #X = np.random.gamma(10,0.5,n)   # misspecification case
     elif model_name == 'gandk':
         X = sample_gandk_outl(n,d,theta_star, n_cont=i)
     else:
-        X = sample_togswitch_outl(n,d,theta_star, T, n_cont=i)
-    np.savetxt("/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/data_{}_{}_{}_{}_gamma2.txt".format(i,n,model_name,d),X)
+        X = sample_togswitch_outl2(theta_star, n, T, n_cont=i)  # ftiaxe to fn twra pou to eluses to thema
+    np.savetxt("/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/data_{}_{}_{}_{}.txt".format(i,n,model_name,d),X)
 #%%    
 # Set parameters
-m = 512 # number of samples
-l = -1 #2  # kernel lengthscale
-p = 1 #4   # number of unknown parameters
-B = 512 # number of bootstrap iterations 
+m = 500 # number of samples
+l = 40  # kernel lengthscale
+p = 7 #4,7,2   # number of unknown parameters
+B = 100 # number of bootstrap iterations 
  
 method = 'SGD'  # Optimisation method 
 if model_name == 'gaussian':
@@ -92,17 +93,17 @@ def optim_gandk(X1,X2,X3,n,m,s,l,theta_star,d,p,B,outl,method,model_name,model):
     for n_cont in range(outl):
         print("-----Running for", n_cont*5, "% of outliers-----")
         if n_cont == 0:
-            X = X1
+            X = X2    # allaxe
         elif n_cont == 1:
-            X = X2
-        elif n_cont == 2:
             X = X3
+        elif n_cont == 2:
+            X = X2
     
         npl = NPL.npl(X,B,m,s,p,l, model = model, model_name = model_name, method_gd = method)
         npl.draw_samples()
         sample = npl.sample
         samples[n_cont,:,:] = sample
-        np.savetxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/outl_{}_{}_gandk.txt'.format(n_cont,n), sample)
+        np.savetxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/outl_{}_{}_gandk_.txt'.format(n_cont+1,n), sample)
    
         for i in range(p):
             results[i,n_cont] = mean_squared_error(theta_star[i]*np.ones(B), sample[:,i])
@@ -134,7 +135,7 @@ def optim_togswitch(X1,X2,X3,n,m,T,l,theta_star,d,p,B,outl,method,model_name,mod
 
 #%%
 # load data 
-X1 = np.reshape(np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/data_0_{}_{}_{}_gamma.txt'.format(n,model_name,d)), (n,d))
+X1 = np.reshape(np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/data_0_{}_{}_{}.txt'.format(n,model_name,d)), (n,d))
 #X2 = np.reshape(np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/data_1_{}_{}_{}.txt'.format(n,model_name,d)), (n,d))
 #X3 = np.reshape(np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/data_2_{}_{}_{}.txt'.format(n,model_name,d)), (n,d))
 
@@ -147,22 +148,23 @@ else:
     results, samples = optim_togswitch(X1,X1,X1,n,m,T,l,theta_star,d,p,B,outl,method,model_name,model)
  #%%
 # Reshape results 
+outl = 1
 thetas_mmd = np.zeros((p,outl,B))
 thetas_wll = np.zeros((p,outl,B))
 thetas_was = np.zeros((p,outl,B))
 for n_cont in range(outl):
     for j in range(p):
-        sample = np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/outl_{}_{}_{}_{}_missp.txt'.format(n_cont,n,d,model_name))
-        sample_wll = np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/outl_{}_{}_{}_{}_wll_missp.txt'.format(n_cont,n,d,model_name))
-        sample_was = np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/outl_{}_{}_{}_{}_was_missp.txt'.format(n_cont,n,d,model_name))
+        sample = np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/outl_{}_{}_togswitch.txt'.format(n_cont,n))
+        #sample_wll = np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/outl_{}_{}_{}_{}_wll_missp.txt'.format(n_cont,n,d,model_name))
+        #sample_was = np.loadtxt('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/outl_{}_{}_{}_{}_was_missp.txt'.format(n_cont,n,d,model_name))
         if p>1:
             thetas_mmd[j,n_cont,:] = sample[:,j]
-            thetas_wll[j,n_cont,:] = sample_wll[:,j]
-            thetas_was[j,n_cont,:] = sample_was[:,j]
+            #thetas_wll[j,n_cont,:] = sample_wll[:,j]
+            #thetas_was[j,n_cont,:] = sample_was[:,j]
         else:
             thetas_mmd[j,n_cont,:] = sample
-            thetas_wll[j,n_cont,:] = sample_wll
-            thetas_was[j,n_cont,:] = sample_was
+            #thetas_wll[j,n_cont,:] = sample_wll
+            #thetas_was[j,n_cont,:] = sample_was
 #%%    
 # Import data from W-ABC method
         
@@ -171,7 +173,7 @@ if model_name == 'gandk':
     thetas_wabc = np.zeros((p,outl,B))
     for n_cont in range(outl):
         for i,name in enumerate(names):
-            df = pd.read_csv('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/results_{}_gandk_{}.csv'.format(n,n_cont))
+            df = pd.read_csv('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/results_{}_gandk_{}.csv'.format(n_cont,n))
             thetas_wabc[i,n_cont,:] = df[name]
     thetas_wabc[3,:,:] = np.log(thetas_wabc[3,:,:])   # last parameter for gandk is exp(k)
 elif model_name == 'gaussian':
@@ -182,6 +184,17 @@ elif model_name == 'gaussian':
             df = pd.read_csv('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/results_{}_{}_gauss_{}_missp.csv'.format(n,d,n_cont))
             #df = pd.read_csv('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/results_{}.csv'.format(n_cont))
             thetas_wabc[i,n_cont,:] = df[name]
+elif model_name == 'toggle_switch':
+    names = ["alpha_1", "alpha_2", "beta_1", "beta_2", "mu", "sigma", "gamma"]
+    thetas_wabc = np.zeros((p,outl,B))
+    for n_cont in range(outl):
+        for i,name in enumerate(names):
+            df = pd.read_csv('/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/results_togswitch_2000.csv'.format(B))
+            df = df[0:100]
+            thetas_wabc[i,n_cont,:] = df[name]
+    thetas_wabc[1,:,:] = np.log(thetas_wabc[1,:,:])
+    thetas_wabc[5,:,:] = np.log(thetas_wabc[5,:,:])
+    
 
 #%%          
 # Plots
@@ -198,8 +211,12 @@ if model_name == 'gaussian':
     plot_posterior_marginals(B,thetas_wabc, thetas_mmd, thetas_wll, thetas_was, theta_star, outl, gaussian=True, save_fig=False)
     plot_mse(thetas_wabc, thetas_mmd, thetas_wll, thetas_was, mse_MLE, theta_star, outl, gaussian=True, save_fig=False)
 elif model_name == 'gandk':
-    plot_posterior_marginals(B,thetas_wabc, thetas_mmd, theta_star, outl)
-    plot_mse(thetas_wabc, thetas_mmd, theta_star, outl)
+    plot_posterior_marginals(B,thetas_wabc, thetas_mmd, thetas_mmd,thetas_mmd, theta_star, outl, save_fig=True)
+    plot_mse(thetas_wabc, thetas_mmd,thetas_mmd,thetas_mmd, thetas_mmd, theta_star, outl, save_fig=False)
+elif model_name == 'toggle_switch':
+    plot_posterior_marginals(B,thetas_wabc, thetas_mmd, thetas_mmd,thetas_mmd, theta_star, outl, save_fig=False)
+    #plot_mse(thetas_wabc, thetas_mmd,thetas_mmd,thetas_mmd, thetas_mmd, theta_star, outl, save_fig=False)
+    
     
 #%%
 import matplotlib.pyplot as plt

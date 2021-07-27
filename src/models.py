@@ -4,42 +4,34 @@
 Created on Fri Mar  5 17:19:23 2021
 
 """
-
+from utils import boxmuller, normals
 import numpy as np
-from scipy import stats
+from jax import grad
+import jax.numpy as jnp
+from jax.scipy import stats as jstats
+from jax.ops import index, index_update
+from jax import jit, vmap
 
-# Box-Muller transformation
-def boxmuller(unif1,unif2):
-    u1 = np.sqrt(-2*np.log(unif1))*np.cos(2*np.pi*unif2)
-    u2 = np.sqrt(-2*np.log(unif1))*np.sin(2*np.pi*unif2)
-    return np.transpose(np.vstack([u1,u2]))
-
-# Function generating standard normals using the box-muller transformation:
-def normals(n, d, unif, sv=False):
-
-    # avoid origin
-    unif[unif==0] = np.nextafter(0, 1)
-
-    # if d is odd, add one dimension
-    if d % 2 != 0:
-        dim = d + 1
-    else:
-        dim = d
-
-    # expand dimensions for SV model
-    if sv == True:
-        dim = 2+2*d
-
-    # create standard normal samples
-    u = np.zeros((n,dim))
-    for i in np.arange(0,dim,2):
-        u[:,i:(i+2)] = boxmuller(unif[:,i],unif[:,(i+1)])
-
-    # if d is odd, drop one dimension
-    if d % 2 != 0 or sv == True:
-        u = np.delete(u,-1,1)
-
-    return u
+class Model():
+    """An empty/abstract class that dictates the necessary functions a model type class 
+    should have"""
+    
+    def __init__(self, m, params):
+        self.m = m  # number of points sampled from the model at each optim. iteration
+        self.params = params # hyperparameters relevant to each model
+        
+    def generetor(self, u, theta):
+        """Generates samples from the simulator for parameter theta after 
+        providing iid samples u"""
+        return 0
+    
+    def grad_generator(self, u, theta):
+        """Gradient of the generator with respect to theta"""
+        return 0
+        
+    def sample(self, theta):
+        """Given parameter theta returns m samples from the generator"""
+        return 0 
 
 class gauss_model():
     
@@ -93,7 +85,7 @@ class gauss_model():
 class g_and_k_model():
     
     def __init__(self, m, d):
-        self.d = d  # data dim
+        self.d = d  # data dimension
         self.m = m  # number of points sampled from P_\theta at each optim. iteration
     
     # generator
@@ -107,7 +99,7 @@ class g_and_k_model():
 
     # gradient of the generator
     def grad_generator(self, z,theta):
-        a = theta[0]
+        #a = theta[0]
         b = theta[1]
         g = theta[2]
         k = np.exp(theta[3])
@@ -120,7 +112,6 @@ class g_and_k_model():
     def sample(self,theta):          
 
       # generate uniforms
-      
       unif = np.random.rand(self.m,self.d+1)
       
       # generate standard normals  
@@ -137,6 +128,7 @@ class toggle_switch_model():
         self.d = d  # data dim
         self.m = m  # number of points sampled from P_\theta at each optim. iteration
         self.T = T
+        self.seed = 11
         
     def ugenerator(self):
         uvals = np.random.uniform(size=(self.m,(2*self.T)+1))
@@ -152,36 +144,81 @@ class toggle_switch_model():
         sigma = theta[5]
         gamma =  theta[6]
 
-        nsamples= uvals.shape[0]
-        u = np.zeros((nsamples,self.T))
-        v = np.zeros((nsamples,self.T))
-        u_new = np.zeros((nsamples,self.T))
-        v_new = np.zeros((nsamples,self.T))
-        phi_u_new = np.zeros((nsamples,self.T))
-        phi_v_new = np.zeros((nsamples,self.T))
+        nsamples= jnp.shape(uvals)[0]
+        u = jnp.zeros((nsamples,self.T), dtype='float64')
+        v = jnp.zeros((nsamples,self.T), dtype='float64')
+        u_new = jnp.zeros((nsamples,self.T))
+        v_new = jnp.zeros((nsamples,self.T))
+        phi_u_new = jnp.zeros((nsamples,self.T))
+        phi_v_new = jnp.zeros((nsamples,self.T))
 
-
-        u[:,0] = 10.
-        v[:,0] = 10.
+        u = index_update(u, index[:,0], 10.)
+        v = index_update(v, index[:,0], 10.)
 
         for t in range(0,self.T-1):
-
             u_new = u[:,t] +(alpha1/(1.+(v[:,t]**beta1)))-(1.+0.03*u[:,t])
-            phi_u_new = stats.norm.cdf(-2.*u_new)
-            u[:,t+1] = u_new+0.5*stats.norm.ppf(phi_u_new+uvals[:,t]*(1.-phi_u_new))
+            phi_u_new = jstats.norm.cdf(-2.*u_new)
+            u = index_update(u, index[:,t+1], u_new+0.5*jstats.norm.ppf(phi_u_new+uvals[:,t]*(1.-phi_u_new)))
 
-            v_new = v[:,t] +(alpha2/(1.+(u[:,t]**beta2)))-(1.+0.03*v[:,t])
-            phi_v_new = stats.norm.cdf(-2.*v_new)
-            v[:,t+1] = v_new+0.5*stats.norm.ppf(phi_v_new+uvals[:,self.T+t]*(1.-phi_v_new))
+            v_new = v[:,t] +(jnp.exp(alpha2)/(1.+(u[:,t]**beta2)))-(1.+0.03*v[:,t])
+            phi_v_new = jstats.norm.cdf(-2.*v_new)
+            v = index_update(v, index[:,t+1], v_new+0.5*jstats.norm.ppf(phi_v_new+uvals[:,self.T+t]*(1.-phi_v_new)))
 
+        lb = -(u[:,self.T-1] + mu) / (mu*jnp.exp(sigma))*(u[:,self.T-1]**gamma)
+        phi_lb = jstats.norm.cdf(lb)
+        yvals = (jstats.norm.ppf(phi_lb+uvals[:,2*self.T]*(1.-phi_lb))*(jnp.exp(sigma))*(mu)*(u[:,self.T-1]**(-gamma)))+(mu+u[:,self.T-1]) 
 
-        yvals = (stats.norm.ppf(0.5+0.5*uvals[:,2*self.T])*(sigma**2)*(mu**2)*(u[:,self.T-1]**(-2.*gamma)))+(mu+u[:,self.T-1]) 
-
-        return(np.atleast_2d(yvals).T)
+        return (jnp.atleast_2d(yvals).T)
+        
         
     def sample(self,theta):
         uvals = self.ugenerator()
-        x = self.generator(theta,uvals)
-        return np.asarray(x)
+        x = self.generator(theta,uvals) 
+        return jnp.array(x), jnp.array(uvals)
+    
+    def generator_single(self,theta,uvals):
+        """This function is used to find the gradient of the generator using JAX autodiff via vmap. 
+        The user provides the value of the parameter theta and the one dimensional uniform samples uvals of length 2T+1, """
+        
+        alpha1 = theta[0]
+        alpha2 = theta[1]
+        beta1 = theta[2]
+        beta2 = theta[3]
+        mu = theta[4]
+        sigma = theta[5]
+        gamma =  theta[6]
+
+        u = jnp.zeros(self.T, dtype='float64')
+        v = jnp.zeros(self.T, dtype='float64')
+        u_new = jnp.zeros(self.T)
+        v_new = jnp.zeros(self.T)
+        phi_u_new = jnp.zeros(self.T)
+        phi_v_new = jnp.zeros(self.T)
+
+
+        u = index_update(u, index[0], 10.)
+        v = index_update(v, index[0], 10.)
+
+        for t in range(0,self.T-1):
+
+            u_new = u[t] +(alpha1/(1.+(v[t]**beta1)))-(1.+0.03*u[t])
+            phi_u_new = jstats.norm.cdf(-2.*u_new)
+            u = index_update(u, index[t+1],u_new+0.5*jstats.norm.ppf(phi_u_new+uvals[t]*(1.-phi_u_new)))
+
+            v_new = v[t] +(alpha2/(1.+(u[t]**beta2)))-(1.+0.03*v[t])
+            phi_v_new = jstats.norm.cdf(-2.*v_new)
+            v = index_update(v, index[t+1], v_new+0.5*jstats.norm.ppf(phi_v_new+uvals[self.T+t]*(1.-phi_v_new)))
+
+
+        lb = -(u[self.T-1] + mu) / (mu*sigma)*(u[self.T-1]**gamma)
+        phi_lb = jstats.norm.cdf(lb)
+        yval = (jstats.norm.ppf(phi_lb+uvals[2*self.T]*(1.-phi_lb))*(sigma)*(mu)*(u[self.T-1]**(-gamma)))+(mu+u[self.T-1]) 
+
+        return yval
+    
+    def grad_generator(self,uvals,theta):  # automatic differentiation for gradient of generator using JAX
+        gradient = grad(self.generator_single, argnums=0)
+        grad_ = vmap(jit(gradient), in_axes=(None,0), out_axes=1)(theta,uvals)
+        return jnp.reshape(grad_, (1,len(theta),self.m))
     
     

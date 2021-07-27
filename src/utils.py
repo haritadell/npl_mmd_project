@@ -4,12 +4,16 @@
 Created on Fri Mar  5 17:57:30 2021
 
 
-Contains functions related to: Gaussian kernel and its derivatives, sampling from g-and-k and gaussian models using generators
+Contains functions related to: Gaussian kernel and its derivatives, sampling from gaussian, g-and-k and toggle switch models using generators
 """
 
 import numpy as np
+from jax import numpy as jnp
+from jax import vmap
 import scipy.spatial.distance as distance
 from scipy import stats
+import math
+
 
 # Box-Muller transformation
 def boxmuller(unif1,unif2):
@@ -44,7 +48,7 @@ def normals(n, d, unif, sv=False):
 
     return u
 
-# Gaussian kernel  𝑘(𝑥,𝑦) , its gradient w.r.t. first element  ∇1𝑘(𝑥,𝑦)  and its second derivative w.r.t. to the second and first argument  ∇2∇1𝑘(𝑥,𝑦)
+# Gaussian kernel, its gradient w.r.t. first element and its second derivative w.r.t. to the second and first argument  
 def k(x,y,l, sparse=False): 
 
     if sparse == True:
@@ -71,7 +75,31 @@ def k(x,y,l, sparse=False):
     
     return list([kernel, grad_1, grad_21])
 
-# Generator  𝐺𝜃(𝑢)  and generator gradient  ∇𝜃𝐺𝜃(𝑢)  for the Gaussian location model:
+def sqeuclidean_distance(x, y):
+    return jnp.sum((x-y)**2)
+
+def rbf_kernel(x, y, l):
+    return jnp.exp( -(1/(2*l**2)) * sqeuclidean_distance(x, y))
+
+def k_jax(x,y,l): 
+
+    x = x.astype('float64')
+    y = y.astype('float64')
+    mapx1 = vmap(lambda x, y: rbf_kernel(x, y, l), in_axes=(0, None), out_axes=0)
+    mapx2 = vmap(lambda x, y: mapx1(x, y), in_axes=(None, 0), out_axes=1)
+
+    # kernel
+    K = mapx2(x, y)
+    
+    return K
+
+# Function to get mini-batches for mini-batch gradient descent 
+def get_batches(X, batchSize): 
+    np.random.shuffle(X)
+    for i in np.arange(0, X.shape[0], batchSize):
+        yield X[i:i + batchSize]
+
+# Generator and generator gradient for the Gaussian location model:
 def gen_gaussian(n, d, unif, theta, sigma):
 
     unif[unif==0] = np.nextafter(0, 1)
@@ -147,7 +175,7 @@ def sample_gandk_outl(n,d,theta, n_cont = 0):
 
     # generate samples from g-and-k distribution
     if n_cont != 0:
-        outl = gen_gandk(z_outl, theta) + 15
+        outl = gen_gandk(z_outl, theta) + 30
         sample = gen_gandk(z,theta)
         x = np.concatenate((sample, outl), axis=0)
     else:
@@ -156,23 +184,26 @@ def sample_gandk_outl(n,d,theta, n_cont = 0):
     #outl = np.asmatrix(np.random.normal(loc=5,scale=1,size=cont_size)).transpose()
 
     return np.asarray(x)   
-
-def gen_togswitch(theta,uvals,T):
-    alpha1 = theta[0]
-    alpha2 = theta[1]
-    beta1 = theta[2]
-    beta2 = theta[3]
-    mu = theta[4]
-    sigma = theta[5]
-    gamma =  theta[6]
     
-    n= uvals.shape[0]
-    u = np.zeros((n,T))
-    v = np.zeros((n,T))
-    u_new = np.zeros((n,T))
-    v_new = np.zeros((n,T))
-    phi_u_new = np.zeros((n,T))
-    phi_v_new = np.zeros((n,T))
+
+def sample_togswitch_univ(params,n,T):
+    """Sample of size n from the simple univariate toggle switch model"""
+    
+    # Parameters
+    alpha1 = params[0]
+    alpha2 = params[1]
+    beta1 = params[2]
+    beta2 = params[3]
+    mu = params[4]
+    sigma = params[5]
+    gamma =  params[6]
+    
+    # Initialize 
+    nsamples= n
+    u = np.zeros((nsamples,T))
+    v = np.zeros((nsamples,T))
+    u_new = np.zeros((nsamples,T))
+    v_new = np.zeros((nsamples,T))
 
 
     u[:,0] = 10.
@@ -181,35 +212,59 @@ def gen_togswitch(theta,uvals,T):
     for t in range(0,T-1):
 
         u_new = u[:,t] +(alpha1/(1.+(v[:,t]**beta1)))-(1.+0.03*u[:,t])
-        phi_u_new = stats.norm.cdf(-2.*u_new)
-        u[:,t+1] = u_new+0.5*stats.norm.ppf(phi_u_new+uvals[:,t]*(1.-phi_u_new))
+        u[:,t+1] = u_new+0.5*stats.truncnorm.rvs(-2*u_new,math.inf, size=nsamples)
 
-        v_new = v[:,t] +(alpha2/(1.+(u[:,t]**beta2)))-(1.+0.03*v[:,t])
-        phi_v_new = stats.norm.cdf(-2.*v_new)
-        v[:,t+1] = v_new+0.5*stats.norm.ppf(phi_v_new+uvals[:,T+t]*(1.-phi_v_new))
+        v_new = v[:,t] +(np.exp(alpha2)/(1.+(u[:,t]**beta2)))-(1.+0.03*v[:,t])
+        v[:,t+1] = v_new+0.5*stats.truncnorm.rvs(-2*v_new, math.inf, size=nsamples)
 
-
-    yvals = (stats.norm.ppf(0.5+0.5*uvals[:,2*T])*(sigma**2)*(mu**2)*(u[:,T-1]**(-2.*gamma)))+(mu+u[:,T-1]) 
+    lb = -(u[:,T-1] + mu) / (mu*np.exp(sigma))*(u[:,T-1]**gamma)
+    yvals = u[:,T-1] + mu + mu*np.exp(sigma)*stats.truncnorm.rvs(lb, math.inf, size=nsamples) / (u[:,T-1]**gamma)
 
     return(np.atleast_2d(yvals).T)
-    
 
-def sample_togswitch_outl(n,d,theta,T, n_cont = 0):
+def sample_togswitch_biv(params,n,T):
+    """Sample of size n from the simple bivariate toggle switch model"""
     
-    cont_size = int(np.floor(int(n_cont)*5/100*n))
-    n_real = n - cont_size
+    # Parameters
+    alpha1 = params[0]
+    alpha2 = params[1]
+    beta1 = params[2]
+    beta2 = params[3]
+    kappa_1 = params[4]
+    kappa_2 = params[5]
+    delta_1 = params[6]
+    delta_2 = params[7]
+    tau_1 = params[8]
+    tau_2 = params[9]
+    mu = params[10]
+    sigma = params[11]
+    gamma =  params[12]
     
-    uvals = np.random.uniform(size=(n_real,(2*T)+1))
-    uvals_outl = np.random.uniform(size=(cont_size,(2*T)+1))
-    
-    if n_cont != 0:
-        #outl = gen_togswitch(theta, uvals_outl, T) + ???
-        sample = gen_togswitch(theta, uvals, T)
-        x = np.concatenate((sample, outl), axis=0)
-    else:
-        x = gen_togswitch(theta, uvals, T)
-        
-    return np.asarray(x)
+    # Initialize
+    nsamples= n
+    u = np.zeros((nsamples,T))
+    v = np.zeros((nsamples,T))
+    u_new = np.zeros((nsamples,T))
+    v_new = np.zeros((nsamples,T))
+
+
+    u[:,0] = 10.
+    v[:,0] = 10.
+
+    for t in range(0,T-1):
+
+        u_new = u[:,t] +(alpha1/(1.+(v[:,t]**beta1)))-(kappa_1+delta_1*u[:,t])
+        u[:,t+1] = u_new+tau_1*stats.truncnorm.rvs(-(1/tau_1)*u_new,math.inf, size=nsamples)
+
+        v_new = v[:,t] +(np.exp(alpha2)/(1.+(u[:,t]**beta2)))-(kappa_2+delta_2*v[:,t])
+        v[:,t+1] = v_new+tau_2*stats.truncnorm.rvs(-(1/tau_2)*v_new, math.inf, size=nsamples)
+
+    lb = -(u[:,T-1] + mu) / (mu*np.exp(sigma))*(u[:,T-1]**gamma)
+    yvals1 = u[:,T-1] + mu + mu*np.exp(sigma)*stats.truncnorm.rvs(lb, math.inf, size=nsamples) / (u[:,T-1]**gamma)
+    yvals2 = v[:,T-1] + mu + mu*np.exp(sigma)*stats.truncnorm.rvs(lb, math.inf, size=nsamples) / (v[:,T-1]**gamma)
+
+    return [yvals1,yvals2]
+
     
 
 
