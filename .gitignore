@@ -1,2 +1,14 @@
 .ipynb_checkpoints
 */.ipynb_checkpoints/*.ipynb
+.DS_Store
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
