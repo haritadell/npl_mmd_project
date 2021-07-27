@@ -17,7 +17,7 @@ from scipy import stats
 import ot
 from scipy.optimize import minimize
 import jax.numpy as jnp
-from jax import grad, vmap, value_and_grad
+from jax import grad, vmap, value_and_grad, jit
 from jax.ops import index_update
 from jax.config import config
 from jax.experimental import optimizers
