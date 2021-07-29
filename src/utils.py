@@ -266,6 +266,20 @@ def sample_togswitch_biv(params,n,T):
 
     return [yvals1,yvals2]
 
+
+def toggle_switch_composite(n, perc_outl, params1, params2, T):
+    """Sample from simple toggle switch model with a percentage of points (perc_outl) from 
+    the complicated toggle switch model"""
+    
+    n1 = int(n*(1-perc_outl))
+    n2 = int(n-n1)
+  
+    X1 = sample_togswitch_univ(params1, n1, T).flatten()
+    X2 = sample_togswitch_biv(params2, n2, T)[0][:]
+  
+    data = np.hstack((X1, X2))
+
+    return X1, X2, data
     
 
 
