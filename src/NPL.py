@@ -56,13 +56,10 @@ class npl():
     
         
         
-    def draw_single_sample(self, seed):
+    def draw_single_sample(self, weights):
         """ Draws a single sample from the nonparametric posterior specified via
         the model and the data X"""
         
-        # draw Dirichlet weights
-        weights = dirichlet.rvs(np.ones(self.n), size = 1, random_state = seed).flatten()  
-       
         # compute weighted log-likelihood minimizer for Gaussian model
         if self.model_name == 'gaussian':
             wll_j = self.WLL(self.X, weights) 
@@ -77,29 +74,16 @@ class npl():
         else:
             theta_j = self.minimise_MMD(self.X, weights)
              
-        return theta_j, wll_j, was_j
+        return theta_j #, wll_j, was_j
         
     
     def draw_samples(self):
         """Draws B samples in parallel from the nonparametric posterior"""
         
-        # create objects to log the optimization results
-        sample = np.zeros((self.B,self.p))
-        wll = np.zeros((self.B,self.p))
-        was_sample = np.zeros((self.B,self.p))
-        
-        # Parallelize
-        temp = Parallel(n_jobs=-1, backend='multiprocessing', max_nbytes=None,batch_size="auto")(delayed(self.draw_single_sample)(i) for i in tqdm(range(self.B)))
-    
-        for i in range(self.B):
-            sample[i,:] = temp[i][0]
-            wll[i,:] = temp[i][1]
-            was_sample[i,:] = temp[i][2]
-            
-        self.sample = np.array(sample)
-        self.wll = np.array(wll)
-        self.was = np.array(was_sample)
-     
+        # Draw weights for each bootstrap iteration and then parallelize using JAX vmap
+        weights = dirichlet.rvs(np.ones(self.n), size = self.B, random_state = 11)
+        samples = vmap(self.draw_single_sample, in_axes=0)(weights)
+        self.sample = np.array(samples) 
     
     
     def g_approx(self,grad_g, k2yy):
