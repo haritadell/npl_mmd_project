@@ -6,7 +6,7 @@ Created on Fri Mar  5 17:19:23 2021
 """
 from utils import boxmuller, normals
 import numpy as np
-from jax import grad
+from jax import grad, lax
 import jax.numpy as jnp
 from jax.scipy import stats as jstats
 from jax.ops import index, index_update
@@ -143,30 +143,36 @@ class toggle_switch_model():
         mu = theta[4]
         sigma = theta[5]
         gamma =  theta[6]
+        
+        nsamples, T_ = jnp.shape(uvals)
+        T = (T_ - 1)/2
+        u = jnp.zeros(nsamples)
+        v = jnp.zeros(nsamples)
+        
+        u = index_update(u, index[:], 10.)
+        v = index_update(v, index[:], 10.)
 
-        nsamples= jnp.shape(uvals)[0]
-        u = jnp.zeros((nsamples,self.T), dtype='float64')
-        v = jnp.zeros((nsamples,self.T), dtype='float64')
-        u_new = jnp.zeros((nsamples,self.T))
-        v_new = jnp.zeros((nsamples,self.T))
-        phi_u_new = jnp.zeros((nsamples,self.T))
-        phi_v_new = jnp.zeros((nsamples,self.T))
+        init_list = jnp.array([u,v])
+        ranges =  jnp.arange(T+1).astype(int)
 
-        u = index_update(u, index[:,0], 10.)
-        v = index_update(v, index[:,0], 10.)
+        def step(list_, t):
+          u_t, v_t = list_[0], list_[1]
+          u_new = u_t +(alpha1/(1.+(v_t**beta1)))-(1.+0.03*u_t)
+          phi_u_new = jstats.norm.cdf(-2.*u_new)
+          u_next = u_new+0.5*jstats.norm.ppf(phi_u_new+uvals[:,t]*(1.-phi_u_new))
 
-        for t in range(0,self.T-1):
-            u_new = u[:,t] +(alpha1/(1.+(v[:,t]**beta1)))-(1.+0.03*u[:,t])
-            phi_u_new = jstats.norm.cdf(-2.*u_new)
-            u = index_update(u, index[:,t+1], u_new+0.5*jstats.norm.ppf(phi_u_new+uvals[:,t]*(1.-phi_u_new)))
+          v_new = v_t +(alpha2/(1.+(u_t**beta2)))-(1.+0.03*v_t)
+          phi_v_new = jstats.norm.cdf(-2.*v_new)
+          v_next = v_new+0.5*jstats.norm.ppf(phi_v_new+uvals[:,self.T+t]*(1.-phi_v_new))
+          return jnp.array([u_next, v_next]), t
+        
+        # Use lax.scan instead of for loop so that jax.jit can compile faster
+        final_array, _  = lax.scan(step, init_list, ranges)
+        u, v = final_array[0], final_array[1]
 
-            v_new = v[:,t] +(jnp.exp(alpha2)/(1.+(u[:,t]**beta2)))-(1.+0.03*v[:,t])
-            phi_v_new = jstats.norm.cdf(-2.*v_new)
-            v = index_update(v, index[:,t+1], v_new+0.5*jstats.norm.ppf(phi_v_new+uvals[:,self.T+t]*(1.-phi_v_new)))
-
-        lb = -(u[:,self.T-1] + mu) / (mu*jnp.exp(sigma))*(u[:,self.T-1]**gamma)
+        lb = -(u + mu) / (mu*jnp.exp(sigma))*(u**gamma)
         phi_lb = jstats.norm.cdf(lb)
-        yvals = (jstats.norm.ppf(phi_lb+uvals[:,2*self.T]*(1.-phi_lb))*(jnp.exp(sigma))*(mu)*(u[:,self.T-1]**(-gamma)))+(mu+u[:,self.T-1]) 
+        yvals = (jstats.norm.ppf(phi_lb+uvals[:,2*self.T]*(1.-phi_lb))*(jnp.exp(sigma))*(mu)*(u**(-gamma)))+(mu+u) 
 
         return (jnp.atleast_2d(yvals).T)
         

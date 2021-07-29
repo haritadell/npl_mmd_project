@@ -82,6 +82,7 @@ def rbf_kernel(x, y, l):
     return jnp.exp( -(1/(2*l**2)) * sqeuclidean_distance(x, y))
 
 def k_jax(x,y,l): 
+    """Gaussian kernel compatible with JAX library"""
 
     x = x.astype('float64')
     y = y.astype('float64')
