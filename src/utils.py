@@ -13,6 +13,8 @@ from jax import vmap
 import scipy.spatial.distance as distance
 from scipy import stats
 import math
+import copy
+from numpy.random import choice
 
 
 # Box-Muller transformation
@@ -93,6 +95,16 @@ def k_jax(x,y,l):
     K = mapx2(x, y)
     
     return K
+
+def k_comp(x,y):
+    l_range = np.array([1.0,10.0,20.0,40.0,80.0,100.0,130.0,200.0,400.0,800.0,1000.0])
+    n = len(x)
+    m = len(y)
+    k_gaus = np.zeros((n,m))
+    for l in l_range:
+      k_gaus += k_jax(x,y,l)
+ 
+    return k_gaus 
 
 # Function to get mini-batches for mini-batch gradient descent 
 def get_batches(X, batchSize): 
@@ -187,26 +199,23 @@ def sample_gandk_outl(n,d,theta, n_cont = 0):
     return np.asarray(x)   
     
 
-def sample_togswitch_univ(params,n,T):
-    """Sample of size n from the simple univariate toggle switch model"""
+
     
-    # Parameters
-    alpha1 = params[0]
-    alpha2 = params[1]
+def sample_togswitch_noise(params,n,T, df, add_noise=True):
+    alpha1 = np.exp(params[0])
+    alpha2 = np.exp(params[1])
     beta1 = params[2]
     beta2 = params[3]
-    mu = params[4]
-    sigma = params[5]
+    mu = np.exp(params[4])
+    sigma = np.exp(params[5])
     gamma =  params[6]
-    
-    # Initialize 
+  
     nsamples= n
     u = np.zeros((nsamples,T))
     v = np.zeros((nsamples,T))
     u_new = np.zeros((nsamples,T))
     v_new = np.zeros((nsamples,T))
-
-
+    
     u[:,0] = 10.
     v[:,0] = 10.
 
@@ -215,72 +224,24 @@ def sample_togswitch_univ(params,n,T):
         u_new = u[:,t] +(alpha1/(1.+(v[:,t]**beta1)))-(1.+0.03*u[:,t])
         u[:,t+1] = u_new+0.5*stats.truncnorm.rvs(-2*u_new,math.inf, size=nsamples)
 
-        v_new = v[:,t] +(np.exp(alpha2)/(1.+(u[:,t]**beta2)))-(1.+0.03*v[:,t])
+        v_new = v[:,t] +(alpha2/(1.+(u[:,t]**beta2)))-(1.+0.03*v[:,t])
         v[:,t+1] = v_new+0.5*stats.truncnorm.rvs(-2*v_new, math.inf, size=nsamples)
 
-    lb = -(u[:,T-1] + mu) / (mu*np.exp(sigma))*(u[:,T-1]**gamma)
-    yvals = u[:,T-1] + mu + mu*np.exp(sigma)*stats.truncnorm.rvs(lb, math.inf, size=nsamples) / (u[:,T-1]**gamma)
+    lb = -(u[:,T-1] + mu) / (mu*sigma)*(u[:,T-1]**gamma)
 
-    return(np.atleast_2d(yvals).T)
-
-def sample_togswitch_biv(params,n,T):
-    """Sample of size n from the simple bivariate toggle switch model"""
+    perc_noisy = 0.1
+    n_noisy = int(perc_noisy*n)
+    noise = stats.t.rvs(df, loc=0, scale=10, size=n_noisy)
     
-    # Parameters
-    alpha1 = params[0]
-    alpha2 = params[1]
-    beta1 = params[2]
-    beta2 = params[3]
-    kappa_1 = params[4]
-    kappa_2 = params[5]
-    delta_1 = params[6]
-    delta_2 = params[7]
-    tau_1 = params[8]
-    tau_2 = params[9]
-    mu = params[10]
-    sigma = params[11]
-    gamma =  params[12]
+    if add_noise == True:
+      y = u[:,T-1] + mu + mu*sigma*stats.truncnorm.rvs(lb, math.inf, size=nsamples) / (u[:,T-1]**gamma)
+      yvals = copy.deepcopy(y)
+      y_noisy_index = choice(n, n_noisy)
+      
+      yvals[y_noisy_index] += noise
+    else:
+      yvals = u[:,T-1] + mu + mu*sigma*stats.truncnorm.rvs(lb, math.inf, size=nsamples) / (u[:,T-1]**gamma)
+      y = yvals
+
+    return np.atleast_2d(yvals), noise, y
     
-    # Initialize
-    nsamples= n
-    u = np.zeros((nsamples,T))
-    v = np.zeros((nsamples,T))
-    u_new = np.zeros((nsamples,T))
-    v_new = np.zeros((nsamples,T))
-
-
-    u[:,0] = 10.
-    v[:,0] = 10.
-
-    for t in range(0,T-1):
-
-        u_new = u[:,t] +(alpha1/(1.+(v[:,t]**beta1)))-(kappa_1+delta_1*u[:,t])
-        u[:,t+1] = u_new+tau_1*stats.truncnorm.rvs(-(1/tau_1)*u_new,math.inf, size=nsamples)
-
-        v_new = v[:,t] +(np.exp(alpha2)/(1.+(u[:,t]**beta2)))-(kappa_2+delta_2*v[:,t])
-        v[:,t+1] = v_new+tau_2*stats.truncnorm.rvs(-(1/tau_2)*v_new, math.inf, size=nsamples)
-
-    lb = -(u[:,T-1] + mu) / (mu*np.exp(sigma))*(u[:,T-1]**gamma)
-    yvals1 = u[:,T-1] + mu + mu*np.exp(sigma)*stats.truncnorm.rvs(lb, math.inf, size=nsamples) / (u[:,T-1]**gamma)
-    yvals2 = v[:,T-1] + mu + mu*np.exp(sigma)*stats.truncnorm.rvs(lb, math.inf, size=nsamples) / (v[:,T-1]**gamma)
-
-    return [yvals1,yvals2]
-
-
-def toggle_switch_composite(n, perc_outl, params1, params2, T):
-    """Sample from simple toggle switch model with a percentage of points (perc_outl) from 
-    the complicated toggle switch model"""
-    
-    n1 = int(n*(1-perc_outl))
-    n2 = int(n-n1)
-  
-    X1 = sample_togswitch_univ(params1, n1, T).flatten()
-    X2 = sample_togswitch_biv(params2, n2, T)[0][:]
-  
-    data = np.hstack((X1, X2))
-
-    return X1, X2, data
-    
-
-
-
