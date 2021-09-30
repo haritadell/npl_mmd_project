@@ -5,7 +5,7 @@ Created on Thu Mar  4 11:28:49 2021
 
 """
 
-from utils import k, k_jax
+from utils import k, k_jax, k_comp
 import itertools
 from numpy.random import choice
 import numpy as np
@@ -18,7 +18,7 @@ import ot
 from scipy.optimize import minimize
 import jax.numpy as jnp
 from jax import grad, vmap, value_and_grad, jit
-from jax.ops import index_update
+from jax.ops import index_update, index
 from jax.config import config
 from jax.experimental import optimizers
 
@@ -30,29 +30,26 @@ class npl():
         X: Data set 
         B: number of bootstrap iterations
         m: number of points sampled from P_\theta at each optim. iteration
-        s: standard deviation for Gaussian model
         p: number of unknown parameters
         l: lengthscale of gaussian kernel
         model: model in the form as in models.py
         model_name: name set to 'gaussian' or 'gandk' or 'toggle_switch'
-        method_gd: gradient-based optimisation method set to eithr 'SGD' or 'NSGD'
     """
     
-    def __init__(self, X, B, m, s, p, l, model, model_name = 'gaussian', method_gd = 'SGD'):
+    def __init__(self, X, B, m, p, l, model, model_name = 'gaussian'):
         self.model = model
         self.B = B  
         self.m = m  
-        self.s = s  
         self.p = p  
         self.X = X  
         self.n, self.d = self.X.shape   
-        self.method_gd = method_gd 
         self.model_name  = model_name 
         self.l = l  
         # set l = -1 for median heuristic 
         if self.l == -1:
             self.l = np.sqrt((1/2)*np.median(distance.cdist(self.X,self.X,'sqeuclidean')))
         self.kxx = k(self.X,self.X,self.l)[0] # pre calculate kernel matrix of data k(x,x)
+        self.s = 1 # standard deviation for Gaussian model
     
         
         
@@ -68,8 +65,7 @@ class npl():
             wll_j = 1 # dummy variable 
             was_j = 1 # dummy variable
         
-        # compute MMD minimizer
-        if self.model_name == 'toggle_switch': # For toggle-switch model we use JAX 
+        if self.model_name == 'toggle_switch':
             theta_j = self.minimise_MMD_togswitch(self.X, weights)
         else:
             theta_j = self.minimise_MMD(self.X, weights)
@@ -84,72 +80,11 @@ class npl():
         weights = dirichlet.rvs(np.ones(self.n), size = self.B, random_state = 11)
         samples = vmap(self.draw_single_sample, in_axes=0)(weights)
         self.sample = np.array(samples) 
-    
-    
-    def g_approx(self,grad_g, k2yy):
-        """Approximation of the information metric for natural gradient descent"""
-        
-        grad_g_T = np.einsum('ijk -> jik',grad_g)
-        prod1 = np.einsum('ijk, jlkm -> ilkm', grad_g_T, k2yy)
-        prod2 = np.einsum('ijkl,jmk->imkl', prod1, grad_g)
-        for i in range(self.p):
-            np.fill_diagonal(prod2[i,i,:,:], 0)
-        gsum = np.einsum('ijkl->ij', prod2)
-    
-        return 1/(self.m*(self.m-1))*gsum
 
-    
-    def MMD_approx(self,weights,kxy,kyy):
+    def MMD_approx(self,kxy,kyy):
         """ Approximation of the squared MMD between the model represented by y_{i=1}^m iid sample and
         a sample from the DP posterior
         """
-        
-        # first sum
-        np.fill_diagonal(kyy, np.repeat(0,self.m)) # excludes k(y_i, y_i) (diagonal terms)
-        sum1 = np.sum(kyy)
-    
-        # second sum
-        sum2 = np.sum(kxy)
-    
-        # third sum
-        np.fill_diagonal(self.kxx, np.repeat(0,self.n))
-        kxx = self.kxx*weights 
-        sum3 = np.sum(kxx)
-    
-        return (1/(self.m*(self.m-1)))*sum1-(2/(self.m))*sum2+(1/(self.n-1))*sum3
-        
-    
-    
-    def grad_MMD(self,grad_g,k1yy,k1xy,batchsize):
-        """Approximates the gradient of the MMD with respect to theta when the gradient of the generator is known"""
-    
-        # first sum
-        prod1 = np.squeeze(np.einsum('ilj,imjk->lmjk', grad_g, np.expand_dims(k1yy,axis=1)))
-        if prod1.ndim==2:
-            np.fill_diagonal(prod1[:,:], 0)
-            sum1 = np.sum(prod1)
-        else:
-            for i in range(self.p):
-                np.fill_diagonal(prod1[i,:,:], 0)
-            sum1 = np.einsum('ijk->i',prod1)
-
-        # second sum
-        prod2 = np.squeeze(np.einsum('ilj,imjk->lmjk', grad_g, np.expand_dims(k1xy,axis=1)))
-        if prod2.ndim==2:
-            sum2 = np.sum(prod2)
-        else:
-            sum2 = np.einsum('ijk->i',prod2)
-    
-        return (2/(self.m*(self.m-1)))*sum1-(2/(self.m*batchsize))*sum2
-    
-    def mmd_ts(self,theta,data,batchsize):
-        """Function to approximate the squared MMD in jax for use in the toggle switch model"""
-        
-        sample = self.model.sample(theta)[0]
-        
-        kxx = k_jax(data,data,self.l) # different for each batch
-        kyy = k_jax(sample,sample,self.l)
-        kxy = k_jax(sample,data,self.l)
         
         # first sum
         diag_elements = jnp.diag_indices_from(kyy)
@@ -158,98 +93,22 @@ class npl():
     
         # second sum
         sum2 = jnp.sum(kxy)
-    
-        # third sum
-        diag_elements = jnp.diag_indices_from(kxx)
-        kxx = index_update(kxx, diag_elements, jnp.repeat(0,batchsize))
+
+        # third sum 
+        diag_elements = jnp.diag_indices_from(self.kxx)
+        kxx = index_update(self.kxx, diag_elements, jnp.repeat(0,self.n))
         sum3 = jnp.sum(kxx)
-            
-        mmd = (1/(self.m*(self.m-1)))*sum1-(2/(self.m*batchsize))*sum2+(1/(batchsize*(batchsize-1)))*sum3
-        
-        return mmd
     
-    def grad_mmd_ts(self,theta,data,batchsize):
-        """Function for the gradient of the squared MMD using jax autodiff for use 
-        in the toggle switch model"""
+        return (1/(self.m*(self.m-1)))*sum1-(2/(self.n*self.m))*sum2+(1/(self.n*(self.n-1)))*sum3
         
-        #config.update("jax_debug_nans", True)  # check for nans in gradients - comment out after debugging
-        config.update("jax_enable_x64", True)   # for stability
-        gradient = grad(self.mmd_ts, argnums=0) 
-        return gradient(theta,data,batchsize)
+    
+    def minimise_MMD(self, data, weights, Nstep=1000, eta=0.1, batch_size=100):
+        """Function to minimise the MMD using adam optimisation from jax"""
         
-    def minimise_MMD(self, data, weights, Nstep=150, eta=0.1, batchsize=128): 
-        """ Gradient-based optimization to minimize the MMD objective between 
-        P^(j) for alpha=0 and P_\theta with
-        Number of iterations = Nstep  
-        Step size = eta
-        Batch size = batchsize"""
-        
-        # Initialise
+        params=jnp.zeros(self.p)
         if self.model_name == 'gandk':
-            theta = np.zeros(self.p)
-            theta[0] = np.median(self.X)
-            theta[1] = stats.iqr(self.X, interpolation = 'midpoint')/2
-            theta[2] = 0
-            theta[3] = 0
-        else:
-            theta = 0.5*np.ones(self.p)
-        t = 0
-        
-        while t < Nstep:  
-            for i in range(self.n//batchsize):
-                if self.d == 1:
-                    batch_x = choice(data.flatten(), batchsize, p=weights).reshape(-1,1) # sample batch with replacement
-                else:
-                    idx = choice(range(len(data)),batchsize, p=weights)
-                    batch_x = data[idx].reshape(batchsize,self.d)
-                if self.model_name == 'gandk':
-                    sample, z = self.model.sample(theta)
-                    grad_g = self.model.grad_generator(z, theta)
-                else:
-                    sample = self.model.sample(theta)
-                    grad_g = self.model.grad_generator(theta)
-                
-                # Calculate kernel matrices and gradients
-                kyy, k1yy, k2yy = k(sample,sample,self.l)
-                kxy, k1xy = k(sample,batch_x,self.l)[0:2]    
-            
-                # approximate MMD gradient
-                if self.p == 1:
-                    gradient = np.asmatrix(self.grad_MMD(grad_g,k1yy,k1xy,batchsize))
-                else:
-                    gradient = self.grad_MMD(grad_g,k1yy,k1xy,batchsize) 
-                
-                # approximate information metric
-                
-                # pre-define noise for information metric
-                noise = [0, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1]
-            
-                if self.method_gd == 'NSGD':
-                    g = self.g_approx(grad_g, k2yy)
-                    # add noise if g can't be inverted
-                    for j in range(9):
-                        check = True
-                        try:
-                            np.linalg.inv(g + np.eye(self.p)*noise[j])
-                        except np.linalg.LinAlgError:
-                            check = False
-                        if check:
-                            break
-                    g = g + np.eye(self.p)*noise[j]
-            
-                # update theta according to optimization method
-                if self.method_gd == 'SGD':
-                    theta = theta-eta*gradient
-                else:
-                    theta = theta-eta*np.linalg.inv(g)@gradient
-            
-            t += 1
-        
-        return theta  
-    
-    def minimise_MMD_togswitch(self, data, weights, Nstep=300, eta=0.6, batch_size=500):
-        """Function to minimise the MMD for the toggle switch model using 
-        adagrad optimisation from jax"""
+            batch_size = 64
+            params = jnp.array([5,5,5,5])
         
         config.update("jax_enable_x64", True)
         num_batches = self.n//batch_size
@@ -269,10 +128,9 @@ class npl():
             sum2 = jnp.sum(kxy)
     
             return (1/(self.m*(self.m-1)))*sum1-(2/(n*self.m))*sum2 
+            
         
-        # initialisation
-        params = jnp.array([20.,1.,3.,2.,320.,-2.,0.01])
-        opt_init, opt_update, get_params = optimizers.adagrad(step_size=eta) 
+        opt_init, opt_update, get_params = optimizers.adam(step_size=eta) 
         opt_state = opt_init(params)
         itercount = itertools.count()
 
@@ -294,25 +152,92 @@ class npl():
             value, opt_state = step(next(itercount), opt_state, batches)
             
         return get_params(opt_state)
-
-    def minimise_MMD_ts(self, data, weights, Nstep=200, eta=0.1, batchsize=512): 
-        """Gradient based optimisation to minimise the MMD using batch gradient descent 
-        for the toggle switch model"""
-        
-        #initialise
-        theta = np.array([20.,10.,2.,2.,300.,1.,1.]) 
-        t = 0
-        while t < Nstep:  
-            for i in range(self.n//batchsize):
-                batch_x = choice(data.flatten(), batchsize, p=weights).reshape(-1,1) # sample batches with replacement
-                grad_ = self.grad_mmd_ts(theta,batch_x,batchsize)
-                theta = theta - eta*grad_
-                 
-            print(grad_)
-            
-            t += 1
     
-        return theta 
+    def minimise_MMD_togswitch(self, data, weights, Nstep=2000, eta=0.04, batch_size=2000):
+        """Function to minimise the MMD for the toggle switch model using 
+        adam optimisation from jax"""
+        #batch_size = self.n
+        config.update("jax_enable_x64", True)
+        num_batches = self.n//batch_size
+        
+        n_optimized_locations = 3
+
+        # objective function to feed the optimizer
+        def obj_fun(theta, x, n):
+            #y = self.model.sample(theta)[0]
+            y = self.model.sample(theta)
+            kyy = k_comp(y,y)
+            kxy = k_comp(y,x)
+
+            # first sum
+            diag_elements = jnp.diag_indices_from(kyy)
+            kyy = index_update(kyy, diag_elements, jnp.repeat(0,self.m))
+            sum1 = jnp.sum(kyy)
+    
+            # second sum
+            sum2 = jnp.sum(kxy)
+    
+            return (1/(self.m*(self.m-1)))*sum1-(2/(n*self.m))*sum2 
+        
+
+        opt_init, opt_update, get_params = optimizers.adam(step_size=eta) 
+        itercount = itertools.count()
+
+        grad_fn = vmap(jit(value_and_grad(obj_fun, argnums=0)), in_axes=(None, 0, None))
+        
+        def step(step, opt_state, batches):
+            values, grads = grad_fn(get_params(opt_state), batches, batch_size)
+            opt_state = opt_update(step, np.mean(grads, axis=0), opt_state) 
+            value = np.mean(values, axis=0)
+            return value, opt_state
+        
+        key = random.PRNGKey(11)
+
+        list_of_thetas = jnp.zeros((n_optimized_locations,7))
+        for j in range(n_optimized_locations):
+          opt_state = opt_init(self.best_init_params[j,:])
+          smallest_loss = 10000
+          best_theta = get_params(opt_state)
+          for i in range(Nstep):
+            # get batches 
+            batches = []
+            for _ in range(num_batches):
+              weights_shape = weights.reshape((self.n,1))
+              key, subkey = jax.random.split(key)
+              batch_x = jax.random.choice(key, a=data.flatten(), shape=(batch_size,1), p=weights).reshape(-1,1)
+              batches.append(batch_x)
+
+            batches = jnp.array(batches)
+            batches = jnp.reshape(batches, (num_batches,batch_size))
+            # update  
+            value, opt_state = step(next(itercount), opt_state, batches)
+            pred =  value < smallest_loss
+            def true_func(args):
+              value, smallest_loss, best_theta, opt_state = args[0], args[1], args[2], args[3]
+              smallest_loss = value
+              best_theta = get_params(opt_state)
+              return smallest_loss, best_theta 
+            def false_func(args):
+              value, smallest_loss, best_theta, opt_state = args[0], args[1], args[2], args[3]
+              smallest_loss = jnp.array(smallest_loss, dtype='float64')
+              return smallest_loss, best_theta
+            smallest_loss, best_theta = jax.lax.cond(pred, true_func, false_func, [value, smallest_loss, best_theta, opt_state])
+
+          list_of_thetas = index_update(list_of_thetas, index[j,:], best_theta)
+
+        loss_min = 10000
+        
+        losses = []
+        seed = 12
+        rng = jax.random.PRNGKey(seed)
+        rng, *rng_inputs = jax.random.split(rng, num=n_optimized_locations + 1)
+        for t in list_of_thetas:
+          losses.append(self.loss(rng,t))
+
+        best_theta = list_of_thetas[jnp.argmin(jnp.asarray(losses))]
+        
+        return best_theta
+        
         
     def WLL(self, data, weights):
         """Get weighted log likelihood minimizer, for gaussian model""" 
