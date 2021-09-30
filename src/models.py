@@ -4,13 +4,13 @@
 Created on Fri Mar  5 17:19:23 2021
 
 """
-from utils import boxmuller, normals
+from utils import boxmuller, normals, k_comp
+import math
 import numpy as np
-from jax import grad, lax
+from jax import grad, lax, jit, vmap, random
 import jax.numpy as jnp
 from jax.scipy import stats as jstats
 from jax.ops import index, index_update
-from jax import jit, vmap
 
 class Model():
     """An empty/abstract class that dictates the necessary functions a model type class 
@@ -134,53 +134,54 @@ class toggle_switch_model():
         uvals = np.random.uniform(size=(self.m,(2*self.T)+1))
         return(uvals)
         
-    def generator(self,theta,uvals):
+    def generator(self,theta):
 
-        alpha1 = theta[0]
-        alpha2 = theta[1]
-        beta1 = theta[2]
-        beta2 = theta[3]
-        mu = theta[4]
-        sigma = theta[5]
-        gamma =  theta[6]
-        
-        nsamples, T_ = jnp.shape(uvals)
-        T = (T_ - 1)/2
+        alpha1 = jnp.exp(theta[0])
+        alpha2 = jnp.exp(theta[1])
+        beta1 = params[2]
+        beta2 = params[3]
+        mu = jnp.exp(theta[4])
+        sigma = jnp.exp(theta[5])
+        gamma = params[6]
+
+        nsamples= 500
+        T = 300
         u = jnp.zeros(nsamples)
         v = jnp.zeros(nsamples)
-        
+
+     
+        seed=13
+        key = random.PRNGKey(seed)
+        key, *key_inputs = random.split(key, num=T+1)
+
         u = index_update(u, index[:], 10.)
         v = index_update(v, index[:], 10.)
-
         init_list = jnp.array([u,v])
-        ranges =  jnp.arange(T+1).astype(int)
 
-        def step(list_, t):
-          u_t, v_t = list_[0], list_[1]
-          u_new = u_t +(alpha1/(1.+(v_t**beta1)))-(1.+0.03*u_t)
-          phi_u_new = jstats.norm.cdf(-2.*u_new)
-          u_next = u_new+0.5*jstats.norm.ppf(phi_u_new+uvals[:,t]*(1.-phi_u_new))
+        def step(current_array,key):
+            u_t, v_t = current_array[0], current_array[1]
+            key, subkey = random.split(key)
+            u_new = u_t +(alpha1/(1.+(v_t**beta1)))-(1.+0.03*u_t)
+            u_next = u_new+0.5*random.truncated_normal(subkey,-2*u_new, math.inf)
+            v_new = v_t +(alpha2/(1.+(u_t**beta2)))-(1.+0.03*v_t)
+            key, subkey = random.split(key)
+            v_next = v_new+0.5*random.truncated_normal(subkey,-2*v_new, math.inf)
+            return jnp.array([u_next,v_next]), key
 
-          v_new = v_t +(alpha2/(1.+(u_t**beta2)))-(1.+0.03*v_t)
-          phi_v_new = jstats.norm.cdf(-2.*v_new)
-          v_next = v_new+0.5*jstats.norm.ppf(phi_v_new+uvals[:,self.T+t]*(1.-phi_v_new))
-          return jnp.array([u_next, v_next]), t
-        
-        # Use lax.scan instead of for loop so that jax.jit can compile faster
-        final_array, _  = lax.scan(step, init_list, ranges)
+        final_array, _  = lax.scan(step, init_list, jnp.array(key_inputs))
         u, v = final_array[0], final_array[1]
 
-        lb = -(u + mu) / (mu*jnp.exp(sigma))*(u**gamma)
-        phi_lb = jstats.norm.cdf(lb)
-        yvals = (jstats.norm.ppf(phi_lb+uvals[:,2*self.T]*(1.-phi_lb))*(jnp.exp(sigma))*(mu)*(u**(-gamma)))+(mu+u) 
+        lb = -(u + mu) / (mu*sigma)*(u**gamma)
+        key, subkey = random.split(key)
+        yvals = u + mu + mu*sigma*random.truncated_normal(subkey, lb, math.inf, shape=(nsamples,)) / (u**gamma)
 
         return (jnp.atleast_2d(yvals).T)
         
         
     def sample(self,theta):
-        uvals = self.ugenerator()
-        x = self.generator(theta,uvals) 
-        return jnp.array(x), jnp.array(uvals)
+        #uvals = self.ugenerator()
+        x = self.generator(theta) 
+        return jnp.array(x)
     
     def generator_single(self,theta,uvals):
         """This function is used to find the gradient of the generator using JAX autodiff via vmap. 
