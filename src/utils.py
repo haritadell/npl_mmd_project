@@ -15,7 +15,7 @@ from scipy import stats
 import math
 import copy
 from numpy.random import choice
-
+from sklearn.utils import shuffle
 
 # Box-Muller transformation
 def boxmuller(unif1,unif2):
@@ -157,7 +157,7 @@ def sample_gaussian_outl(n,d,s,theta,n_cont = 0):   # set n_cont to zero for no 
     # use generator  
     
     if n_cont != 0:
-        outl = gen_gaussian(cont_size, d, unif_outl, 5*np.ones(d),s)
+        outl = gen_gaussian(cont_size, d, unif_outl, 20*np.ones(d),s)
         sample_ = gen_gaussian(n_real,d,unif,theta,s) 
         x = np.concatenate((sample_, outl), axis=0)
     else:
@@ -173,6 +173,7 @@ def gen_gandk(z, theta):
     g = a+b*(1+0.8*((1-np.exp(-g*z))/(1+np.exp(-g*z))))*((1+z**2)**(k))*z
     return g
 
+
 def sample_gandk_outl(n,d,theta, n_cont = 0):
     
     cont_size = int(np.floor(int(n_cont)*5/100*n))
@@ -180,23 +181,27 @@ def sample_gandk_outl(n,d,theta, n_cont = 0):
 
     # generate uniforms
     unif = np.random.rand(n_real,d+1)
-    unif_outl = np.random.rand(cont_size,d+1)
+    unif_outl1 = np.random.rand(int(cont_size//2),d+1)
+    unif_outl2 = np.random.rand(int(cont_size - cont_size//2),d+1)
   
     # generate standard normals  
     z = normals(n_real,d,unif)
-    z_outl = normals(cont_size, d, unif_outl)
+    z_outl1 = normals(int(cont_size//2), d, unif_outl1)
+    z_outl2 = normals(int(cont_size - cont_size//2), d, unif_outl2)
 
     # generate samples from g-and-k distribution
     if n_cont != 0:
-        outl = gen_gandk(z_outl, theta) + 30
+        outl1 = gen_gandk(z_outl1, theta) - 50
+        outl2 = gen_gandk(z_outl2, theta) + 50
         sample = gen_gandk(z,theta)
-        x = np.concatenate((sample, outl), axis=0)
+        x = np.concatenate((sample, outl1, outl2), axis=0)
+        x = shuffle(x)
     else:
         x = gen_gandk(z,theta)
     
     #outl = np.asmatrix(np.random.normal(loc=5,scale=1,size=cont_size)).transpose()
 
-    return np.asarray(x)   
+    return np.asarray(x) 
     
 
 
