@@ -93,8 +93,8 @@ class g_and_k_model():
         a = theta[0]
         b = theta[1]
         g = theta[2]
-        k = np.exp(theta[3])
-        g = a+b*(1+0.8*((1-np.exp(-g*z))/(1+np.exp(-g*z))))*((1+z**2)**(k))*z
+        k = jnp.exp(theta[3])
+        g = a+b*(1+0.8*((1-jnp.exp(-g*z))/(1+jnp.exp(-g*z))))*((1+z**2)**(k))*z
         return g
 
     # gradient of the generator
@@ -109,18 +109,19 @@ class g_and_k_model():
         grad4 = b*(1+0.8*((1-np.exp(-g*z))/(1+np.exp(-g*z))))*(np.exp(k*np.log(1+z**2)))*np.log(1+z**2)*z
         return np.expand_dims(np.einsum('ij->ji',np.c_[grad1,grad2,grad3,grad4]), axis=0)
     
-    def sample(self,theta):          
+    def sample(self,theta,key):          
 
       # generate uniforms
-      unif = np.random.rand(self.m,self.d+1)
+      #unif = np.random.rand(self.m,self.d+1)
       
       # generate standard normals  
-      z = normals(self.m,self.d,unif)
+      #z = normals(self.m,self.d,unif)
+      z = random.normal(key, shape=(512,1))
 
       # generate samples from g-and-k distribution
       x = self.generator(z,theta)
   
-      return np.asarray(x), np.asarray(z)
+      return jnp.asarray(x), jnp.asarray(z)
   
 class toggle_switch_model():
     
@@ -138,11 +139,11 @@ class toggle_switch_model():
 
         alpha1 = jnp.exp(theta[0])
         alpha2 = jnp.exp(theta[1])
-        beta1 = params[2]
-        beta2 = params[3]
+        beta1 = theta[2]
+        beta2 = theta[3]
         mu = jnp.exp(theta[4])
         sigma = jnp.exp(theta[5])
-        gamma = params[6]
+        gamma = theta[6]
 
         nsamples= 500
         T = 300
