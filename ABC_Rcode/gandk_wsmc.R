@@ -11,9 +11,9 @@ prefix = ""
 #load(paste0(prefix, "gandkdata.RData"))
 #obs <- obs[1:nobservations]
 #obs <- t(matrix(read.table("data_0_gnk.txt")$V1))
-r <- 0
+r <- 1
 n_cont <- 0
-data_path = glue('/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/G_and_k_model/run_{r}_outl_{n_cont}')
+data_path = paste0('/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/G_and_k_model/run_', r, '_outl_', n_cont)
 obs <- t(matrix(read.table(data_path)$V1))
 sort_obs = sort(obs)
 
@@ -57,7 +57,7 @@ target$simulate <- function(theta){
 #   ts[i] = t[3]
 # }
 # nthetas was 20148
-param_algo <- list(nthetas = 500, nmoves = 1, proposal = mixture_rmixmod(),
+param_algo <- list(nthetas = 2048, nmoves = 1, proposal = mixture_rmixmod(),
                    minimum_diversity = 0.5, R = 2, maxtrials = 100000)
 t = proc.time()
 for (r in 1:1){
@@ -74,6 +74,13 @@ load(filename)
 
 # load(filename)
 wsmc.df <- wsmc_to_dataframe(results)
+nsteps = tail(wsmc.df$step,n=1)
+#step = nsteps
+# set step such that the number of model simulations until that point is about 2.4^10^6
+step = nsteps
+wsmc.df = wsmc.df[wsmc.df$step == step,]
+string <- paste0("/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/G_and_k_model/MABC/thetas_wabc_outl_",n_cont,"_run_", r, ".csv")
+#write.csv(wsmc.df, string)
 # nsteps <- max(wsmc.df$step)
 #
 # # plot_bivariate_polygon(results, 1, 2)
