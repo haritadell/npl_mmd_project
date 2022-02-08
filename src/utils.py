@@ -249,4 +249,25 @@ def sample_togswitch_noise(params,n,T, df, add_noise=True):
       y = yvals
 
     return np.atleast_2d(yvals), noise, y
+
+def mse(theta,theta_star):
+    mse_ = np.mean(np.asarray((theta-theta_star))**2)/np.mean(theta_star)
+    return mse_
+
+def MMD_approx(n,m,kxx,kxy,kyy):
+    """ Approximates the squared MMD between P and Q given the gram matrices between samples y_{1:m} iid from P and x_{1:n} iid from Q
+    """
+        
+    # first sum
+    np.fill_diagonal(kyy, np.repeat(0,m)) # excludes k(y_i, y_i) (diagonal terms)
+    sum1 = np.sum(kyy)
+    
+    # second sum
+    sum2 = np.sum(kxy)
+    
+    # third sum
+    np.fill_diagonal(kxx, np.repeat(0,n))
+    sum3 = np.sum(kxx)
+    
+    return (1/(m*(m-1)))*sum1-(2/(n*m))*sum2+(1/(n*(n-1)))*sum3
     
