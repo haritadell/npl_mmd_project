@@ -13,14 +13,22 @@ import models
 import numpy as np
 import pandas as pd
 from scipy import stats
+import time
 
-#
+# Before running: 
+# 1) Set paths 
+# 2) Indicate whether you want a fresh dataset or to load existing one 
+# 3) experiments are run for multiple runs - index which run you want plots for
+
 data_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/Toggle_switch_model/"
 results_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/Toggle_switch_model/"
 plots_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/Plots/Toggle_switch/" 
 
 # Set to True to generate and save fresh datasets or False to load saved datasets
 sample_data_bool = False
+
+# Index which run you want to plot results for
+r = 0 
 
 # Set model 
 model_name = 'toggle_switch' 
@@ -74,7 +82,7 @@ np.savetxt(results_path+'NPL_MMD/summary_stats.txt', summary_stats)
 np.savetxt(results_path+'NPL_MMD/cpu_times.txt', times)      
 #%%
 #### Reshaping and plotting results for a single run   
-r = 0 # index which run you want results for
+
 # Reshape results
 thetas_mmd = np.zeros((p,B))
 for j in range(p):
