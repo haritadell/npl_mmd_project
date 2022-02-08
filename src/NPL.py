@@ -16,7 +16,7 @@ import ot
 from scipy.optimize import minimize
 import jax.numpy as jnp
 import jax
-from jax import grad, vmap, value_and_grad, jit
+from jax import vmap, value_and_grad, jit
 from jax.ops import index_update, index
 from jax.config import config
 from jax.experimental import optimizers
@@ -24,7 +24,7 @@ from jax.experimental import optimizers
 
 # NPL class
 class npl():
-    """This class contains functions to perform NPL inference for any of the models in models.py. 
+    """This class contains functions to perform NPL inference (for alpha = 0 in the DP prior) for any of the models in models.py. 
     The user supplies parameters:
         X: Data set 
         B: number of bootstrap iterations
@@ -153,8 +153,9 @@ class npl():
     
     def minimise_MMD(self, data, weights, Nstep=1000, eta=0.1, batch_size=200):
         """Function to minimise the MMD using adam optimisation from jax"""
-        
-        params=jnp.zeros(self.p)
+        #batch_size = self.n 
+        #params=jnp.zeros(self.p)
+        params = jnp.ones(self.p)
         if self.model_name == 'gandk':
             batch_size = self.n
             params = jnp.array([5.,5.,5.,5.])
@@ -186,17 +187,21 @@ class npl():
         opt_state = opt_init(params)
         itercount = itertools.count()
 
-        grad_fn = vmap(jit(grad(obj_fun, argnums=0)), in_axes=(None, 0, None, None))
+        #grad_fn = vmap(jit(grad(obj_fun, argnums=0)), in_axes=(None, 0, None, None))
+        grad_fn = vmap(jit(value_and_grad(obj_fun, argnums=0)), in_axes=(None, 0, None, None))
         
         def step(step, opt_state, batches, key):
             key, subkey = jax.random.split(key)
-            grads = grad_fn(get_params(opt_state), batches, batch_size, subkey)
+            values, grads = grad_fn(get_params(opt_state), batches, batch_size, subkey)
             opt_state = opt_update(step, np.mean(grads, axis=0), opt_state) 
-            return opt_state
+            value = np.mean(values, axis=0)
+            return value, opt_state
         
         key1 = jax.random.PRNGKey(11)
         key2 = jax.random.PRNGKey(13)
         
+        smallest_loss = 1000000
+        best_theta = get_params(opt_state)
         for i in range(Nstep):            
             batches = []
             for _ in range(num_batches):
@@ -207,9 +212,20 @@ class npl():
 
             batches = jnp.array(batches)
             # update  
-            opt_state = step(next(itercount), opt_state, batches, key2)
+            value, opt_state = step(next(itercount), opt_state, batches, key2)
+            pred =  value < smallest_loss
+            def true_func(args):
+              value, smallest_loss, best_theta, opt_state = args[0], args[1], args[2], args[3]
+              smallest_loss = value
+              best_theta = get_params(opt_state)
+              return smallest_loss, best_theta 
+            def false_func(args):
+              value, smallest_loss, best_theta, opt_state = args[0], args[1], args[2], args[3]
+              smallest_loss = jnp.array(smallest_loss, dtype='float64')
+              return smallest_loss, best_theta
+            smallest_loss, best_theta = jax.lax.cond(pred, true_func, false_func, [value, smallest_loss, best_theta, opt_state])
             
-        return get_params(opt_state)
+        return best_theta#get_params(opt_state)
     
     def minimise_MMD_togswitch(self, data, weights, Nstep=2000, eta=0.04, batch_size=2000):
         """Function to minimise the MMD for the toggle switch model using 
