@@ -115,7 +115,6 @@ def plot_mse(thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thetas_npl_was, mse_ML
     return fig, ax_array
 
 
-#fig1.savefig('mse_prelim.png')
 def plot_bivariate_gaussian(B,thetas_wabc, thetas_mmd, thetas_wll, theta_star, n_cont, fname, save_fig=False):
     compare = 3
     p = len(theta_star)
@@ -373,233 +372,7 @@ def plot_gauss_4d(B,thetas_wabc, thetas_mmd, thetas_wll, thetas_was, theta_star,
     
     return axes
     
-from matplotlib.gridspec import GridSpec
-def plot_grid(B,thetas_wabc, thetas_npl_mmd, theta_star, y, fname, save_fig=False):
-    compare = 2
-    p = len(theta_star)
-    theta_data = np.zeros((p,compare*B))
-    for i in range(p):
-        theta_data[i,:] = np.concatenate((thetas_npl_mmd[i,:],thetas_wabc[i,:]))
-            
-    model_name_data = np.concatenate((['NPL-MMD']*B,['WABC']*B))
 
-    columns = []
-    for i in range(p):
-         columns.append('theta_{}'.format(i))  
-    columns.append('method')
-    theta_data = np.reshape(theta_data,(p,compare*B))
-    df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(p) }) 
-    df_all['method'] =  model_name_data
-
-    n = 1 # number of double-rows
-    m = 4 # number of columns
-
-    t = 0.9 # 1-t == top space 
-    b = 0.1 # bottom space      (both in figure coordinates)
-
-    msp = 0.1 # minor spacing
-    sp = 0.6  # major spacing
-
-    offs=(1+msp)*(t-b)/(2*n+n*msp+(n-1)*sp) # grid offset
-    hspace = sp+msp+1 #height space per grid
-    
-    gs = GridSpec(3,4, hspace=0.1, height_ratios=[1, 1, 2])
-
-    fig = plt.figure(figsize=(20,12))
-    ax_array = []
-    for i in range(12):
-        ax_array.append(fig.add_subplot(gs[i]))
-       
-    first_ax_set = [ax_array[i] for i in [0,1,2,3]]
-    snd_ax_set = [ax_array[i] for i in [4,5,6,7]]
-
-    colors = ['#0072B2', '#D55E00', '#009E73'] 
-    xlabel = [r'$\alpha_1$', r'$\alpha_2$', r'$\beta_1$', r'$\sigma$', r'$\beta_2$', r'$\mu$', r'$\gamma$']
-    
-    for ax1,ax2, i in zip(first_ax_set, snd_ax_set, range(0, 4)):
-        if i == 0:
-            ax1 = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax1, alpha=0.6,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False)
-            ax2 = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2,  ax=ax2, alpha=0.6,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False)
-            ax1.set_ylim(4, 6)
-            ax2.set_ylim(0, 2)
-            ax1.get_xaxis().set_visible(False)
-            ax1.axvline(theta_star[i], color='black', linestyle='--', linewidth = 1)
-            ax2.axvline(theta_star[i], color='black', linestyle='--', linewidth = 1)
-            ax1.set_title(xlabel[i],fontsize=18)
-            ax1.set_ylabel("")
-            ax2.set_ylabel("")
-            ax2.get_legend().remove()
-            ax1.set_yticklabels(ax1.get_yticks(), size = 15)
-            ax2.set_yticklabels(ax2.get_yticks(), size = 15)
-            ax2.set_xticklabels(ax2.get_xticks(), size = 15)
-            ax1.legend_._set_loc(9)
-            plt.setp(ax1.get_legend().get_texts(), fontsize='18') 
-            plt.setp(ax1.get_legend().get_title(), fontsize='18') 
-            ylabels2 = ['{:}'.format(x) for x in ax2.get_yticks()]
-            ax2.set_yticklabels(ylabels2, size = 15)
-            ylabels1 = ['{:}'.format(x) for x in ax1.get_yticks()]
-            ax1.set_yticklabels(ylabels1, size = 15)
-            xlabelst = ['{:}'.format(int(x)) for x in ax2.get_xticks()]
-            ax2.set_xticklabels(xlabelst, size = 15)
-            
-            d = .02  # how big to make the diagonal lines in axes coordinates
-            # arguments to pass to plot, just so we don't keep repeating them
-            kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
-            ax1.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
-            ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
-
-            kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
-            ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
-            ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
-        else:
-            if i == 1:
-                ax1.set_ylim(0.3, 0.5)
-                ax2.set_ylim(0, 0.03)
-                ax1 = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax1, alpha=0.6,hue="method",multiple="layer", palette=colors[0:compare], shade=True, common_norm=True,common_grid=True, legend=False)
-                ax2 = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax2, alpha=0.6,hue="method",multiple="layer", palette=colors[0:compare], shade=True, common_norm=True,common_grid=True, legend=False)
-                ax1.axvline(theta_star[i], color='black',  linestyle='--', linewidth = 1)  
-                ax2.axvline(theta_star[i], color='black',  linestyle='--', linewidth = 1)
-                ylabels2 = ['{:}'.format(x) for x in ax2.get_yticks()]
-                ax2.set_yticklabels(ylabels2, size = 15)
-                ylabels1 = ['{:}'.format(x) for x in ax1.get_yticks()]
-                ax1.set_yticklabels(ylabels1, size = 15)
-                xlabelst = ['{:}'.format(int(x)) for x in ax2.get_xticks()]
-                ax2.set_xticklabels(xlabelst, size = 15)
-                
-                
-            elif i == 2:
-                ax1.set_ylim(3.5, 6)
-                ax2.set_ylim(0, 0.17)
-                ax1 = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax1, alpha=0.6,hue="method",multiple="layer", palette=colors[0:compare], shade=True, common_norm=True,common_grid=True, legend=False)
-                ax2 = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax2, alpha=0.6,hue="method",multiple="layer", palette=colors[0:compare], shade=True, common_norm=True,common_grid=True, legend=False)
-                ax1.axvline(theta_star[i], color='black',  linestyle='--', linewidth = 1)  
-                ax2.axvline(theta_star[i], color='black',  linestyle='--', linewidth = 1)
-                ylabels2 = ['{:,.2f}'.format(x) for x in ax2.get_yticks()]
-                ax2.set_yticklabels(ylabels2, size = 15)
-                ylabels1 = ['{:,.2f}'.format(x) for x in ax1.get_yticks()]
-                ax1.set_yticklabels(ylabels1, size = 15)
-                xlabelst = ['{:}'.format(int(x)) for x in ax2.get_xticks()]
-                ax2.set_xticklabels(xlabelst, size = 15)
-            elif i == 3:
-                ax1 = sns.kdeplot(data=df_all, x="theta_{}".format(i+2), linestyle="-", linewidth = 2, ax=ax1, alpha=0.6,hue="method",multiple="layer", palette=colors[0:compare], shade=True, common_norm=True,common_grid=True, legend=False)
-                ax2 = sns.kdeplot(data=df_all, x="theta_{}".format(i+2), linestyle="-", linewidth = 2, ax=ax2, alpha=0.6,hue="method",multiple="layer", palette=colors[0:compare], shade=True, common_norm=True,common_grid=True, legend=False)
-                ax1.set_ylim(70, 90)
-                ax2.set_ylim(0, 9)
-                ax1.axvline(theta_star[i+2], color='black',  linestyle='--', linewidth = 1)  
-                ax2.axvline(theta_star[i+2], color='black',  linestyle='--', linewidth = 1)
-                ylabels2 = ['{:}'.format(int(x)) for x in ax2.get_yticks()]
-                ax2.set_yticklabels(ylabels2, size = 15)
-                ylabels1 = ['{:}'.format(int(x)) for x in ax1.get_yticks()]
-                ax1.set_yticklabels(ylabels1, size = 15)
-                xlabelst = ['{:,.2f}'.format(x) for x in ax2.get_xticks()]
-                ax2.set_xticklabels(xlabelst, size = 15)
-            
-            ax1.get_xaxis().set_visible(False)
-            ax1.set_title(xlabel[i],fontsize=18)
-            ax1.set_ylabel("")
-            ax2.set_ylabel("")
-
-            d = .02  
-            kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
-            ax1.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
-            ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
-
-            kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
-            ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
-            ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
-            
-    for ax,i in zip([ax_array[j] for j in [8,9,10,11]],range(4)):
-        if i == 3:
-            df1=pd.DataFrame.from_dict({'value': y, ' ': 'Data without noise'})
-            ax = sns.histplot(data=df1, x='value', hue=' ', multiple='dodge',ax=ax, palette=['#0072B2'])
-            ax.set_ylabel("") 
-            ax.set_xlabel('x',fontsize=18)
-            plt.setp(ax.get_legend().get_texts(), fontsize='18')    
-            ax.set_yticklabels(ax.get_yticks(), size = 15) 
-            xlabelst = ['{:}'.format(int(x)) for x in ax.get_xticks()]
-            ax.set_xticklabels(xlabelst, size = 15) 
-            ylabels = ['{:}'.format(int(x)) for x in ax.get_yticks()]
-            ax.set_yticklabels(ylabels, size = 15)                                                                         
-        elif i == 0:                                                                                    
-            ax = sns.kdeplot(data=df_all, x="theta_{}".format(3), linestyle="-", linewidth = 2, ax=ax, alpha=0.3,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False, legend=False)
-            ax.set_xlabel(xlabel[4],fontsize=18)
-            ax.set_ylabel("")
-            ax.axvline(theta_star[3], color='black',  linestyle='--', linewidth = 1)
-            ylabels = ['{:,.2f}'.format(x) for x in ax.get_yticks()]
-            ax.set_yticklabels(ylabels, size = 15)
-            ax.set_xticklabels(ax.get_xticks(), size = 15) 
-        elif i == 1:
-            ax = sns.kdeplot(data=df_all, x="theta_{}".format(4), linestyle="-", linewidth = 2, ax=ax, alpha=0.3,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False, legend=False)
-            ax.set_xlabel(xlabel[5],fontsize=18)
-            ax.set_ylabel("")
-            ax.axvline(theta_star[4], color='black',  linestyle='--', linewidth = 1)
-            ylabels = ['{:,.2f}'.format(x) for x in ax.get_yticks()]
-            ax.set_yticklabels(ylabels, size = 15)
-            xlabelst = ['{:}'.format(int(x)) for x in ax.get_xticks()]
-            ax.set_xticklabels(xlabelst, size = 15) 
-        else:
-            ax = sns.kdeplot(data=df_all, x="theta_{}".format(6), linestyle="-", linewidth = 2, ax=ax, alpha=0.3,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False, legend=False)
-            ax.set_xlabel(xlabel[6],fontsize=18)
-            ax.axvline(theta_star[6], color='black',  linestyle='--', linewidth = 1)
-            ax.set_ylabel("")
-            ylabels = ['{:}'.format(int(x)) for x in ax.get_yticks()]
-            xlabelst = ['{:,.1f}'.format(x) for x in ax.get_xticks()]
-            ax.set_yticklabels(ylabels, size = 15) 
-            ax.set_xticklabels(xlabelst, size = 15) 
-        
-    fig.tight_layout()
-    if save_fig == True:
-        fig.savefig(fname)
-    return fig, ax_array
-
-def plot_grid2(B,thetas_wabc, thetas_npl_mmd, theta_star, y, fname, save_fig=False):
-    compare = 2
-    p = len(theta_star)
-    theta_data = np.zeros((p,compare*B))
-    for i in range(p):
-        theta_data[i,:] = np.concatenate((thetas_npl_mmd[i,:],thetas_wabc[i,:]))
-            
-    model_name_data = np.concatenate((['NPL-MMD']*B,['WABC']*B))
-
-    columns = []
-    for i in range(p):
-         columns.append('theta_{}'.format(i))  
-    columns.append('method')
-    theta_data = np.reshape(theta_data,(p,compare*B))
-    df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(p) }) 
-    df_all['method'] =  model_name_data
-
-    ax_array = []
-    colors = ['#0072B2', '#D55E00', '#009E73'] 
-    xlabel = [r'$\alpha_1$', r'$\alpha_2$', r'$\beta_1$', r'$\beta_2$', r'$\mu$', r'$\sigma$', r'$\gamma$']
-    
-    for i in range(0, 8):
-        if i == 0:
-            f, (ax1, ax2) = plt.subplots(ncols=1, nrows=2,sharex=True)
-            ax1 = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax1, alpha=0.6,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False)
-            ax2 = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax2, alpha=0.6,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False)
-            ax1.set_ylim(4, 6)
-            ax2.set_ylim(0, 2)
-            ax1.get_xaxis().set_visible(False)
-            ax1.axvline(theta_star[i], color='black', linestyle='--', linewidth = 1)
-            ax2.axvline(theta_star[i], color='black', linestyle='--', linewidth = 1)
-            ax2.set_xlabel(xlabel[i],fontsize=18)
-            ax1.set_ylabel("")
-            ax2.set_ylabel("")
-            ax2.get_legend().remove()
-            ax1.legend_._set_loc(9)
-            
-            d = .02  # how big to make the diagonal lines in axes coordinates
-            # arguments to pass to plot, just so we don't keep repeating them
-            kwargs = dict(transform=ax1.transAxes, color='k', clip_on=False)
-            ax1.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
-            ax1.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
-
-            kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
-            ax2.plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal
-            ax2.plot((1 - d, 1 + d), (1 - d, 1 + d), **kwargs)  # bottom-right diagonal
-            ax_array.append((ax1,ax2))
-    return ax_array
 
 def plot_posterior_marg_tsols(B,thetas_wabc, thetas_npl_mmd, theta_star, y, fname, save_fig=False):
     """Plot the posterior marginal densities obtained from the parameter sample"""
@@ -659,7 +432,7 @@ def plot_posterior_marg_tsols(B,thetas_wabc, thetas_npl_mmd, theta_star, y, fnam
       
     return fig, ax_array
 
-def plot_gauss_4d_2(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_fig=False):
+def plot_gauss_4d_mmd_vs_was(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_fig=False):
     compare = 2
     p = len(theta_star)
     theta_data = np.zeros((p,n_cont,compare*B))
@@ -667,7 +440,7 @@ def plot_gauss_4d_2(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_f
         for j in np.arange(n_cont):
             theta_data[i,j,:] = np.concatenate((thetas_mmd[i,j,:],thetas_mabc[i,j,:]))
             
-    model_name_data = np.concatenate((['NPL-MMD']*B, ['MMD-ABC']*B))
+    model_name_data = np.concatenate((['NPL-MMD']*B, ['NPL-WAS']*B))
     columns = []
     for i in range(n_cont*p):
          columns.append('theta_{}'.format(i))  
@@ -681,13 +454,13 @@ def plot_gauss_4d_2(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_f
     for i in range(n_cont):
         
         if i == 0:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors)#, hue_order=['NPL-WAS','NPL-MMD'])#, ylim=(-4,3))
+            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors, hue_order=['NPL-WAS','NPL-MMD'], xlim=(0.6,2))##, ylim=(-4,3))
             ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6)
         elif i == 1:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors, xlim=(0,2), ylim=(-3,3))#, hue_order=['NPL-WAS','NPL-MMD']) #
+            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors,   hue_order=['NPL-WAS','NPL-MMD']) #
             ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
         else:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors, xlim=(0,1.4), ylim=(-3,3))#, hue_order=['NPL-WAS','NPL-MMD']) #)
+            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD']) #)
             ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
         ax.set_axis_labels(r'$\theta_1$', r'$\theta_2$', fontsize=18)
         ax.ax_joint.axvline(x=theta_star[0], color='black', linestyle='--', linewidth = 1)  
@@ -701,11 +474,11 @@ def plot_gauss_4d_2(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_f
             
     for i in range(n_cont):
         if i == 0:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method",  palette=colors, xlim=(-1, 4)) #, ylim=(-0.5,4))#,hue_order=['NPL-WAS','NPL-MMD'])#)
+            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method",  palette=colors, hue_order=['NPL-WAS','NPL-MMD']) #ylim=(-0.5,4))#,#)
         elif i == 1:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors, xlim=(-2, 4), ylim=(-1,5))#, hue_order=['NPL-WAS','NPL-MMD'])#)
+            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD'])#)
         else:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors, xlim=(-1, 5), ylim=(-1,6))#, hue_order=['NPL-WAS','NPL-MMD'])#)
+            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD'])#)
         ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
         ax.set_axis_labels(r'$\exp(\theta_3)$', r'$\exp(\theta_4)$', fontsize=18)
         ax.ax_joint.axvline(x=theta_star[2], color='black', linestyle='--', linewidth = 1)  
@@ -718,6 +491,106 @@ def plot_gauss_4d_2(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_f
             plt.savefig(fname+'_{}_theta34.png'.format(i))
     
     return axes
+
+def plot_posterior_marginals_mmd_vs_mabc(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_fig=False):
+    
+    compare = 2
+    p = len(theta_star)
+    theta_data = np.zeros((p,compare*B))
+    for i in range(p):
+        theta_data[i,:] = np.concatenate((thetas_mmd[i,n_cont,:],thetas_mabc[i,n_cont,:]))
+        
+    model_name_data = np.concatenate((['NPL-MMD']*B,['MMD-ABC']*B))
+
+    columns = []
+    for i in range(p):
+         columns.append('theta_{}'.format(i))  
+    columns.append('method')
+    theta_data = np.reshape(theta_data,(p,compare*B))
+    df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(p) }) 
+    df_all['method'] =  model_name_data
+    fig, ax_array = plt.subplots(1, p, figsize=(8,2.5))  #(20,8)
+    #titles = [r'$\epsilon = {}$'.format((n_cont)*0.05)]
+    colors = ['#0072B2', '#D55E00', '#009E73','#dede00'] 
+    
+    for ax, i in zip(ax_array.flatten(), range(0, p)):
+        if i == 3:
+            ax = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax, alpha=0.3,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False)
+        else:
+            ax = sns.kdeplot(data=df_all, x="theta_{}".format(i), linestyle="-", linewidth = 2, ax=ax, alpha=0.3,hue="method", multiple="layer", palette=colors[0:compare], shade=True, common_norm=False, legend=False)
+        if i < 2:
+            ax.set_xlabel(r'$\theta_{}$'.format(i+1),  fontsize=15)
+        else:
+            ax.set_xlabel(r'$exp(\theta_{})$'.format(i+1),  fontsize=15)
+            
+        ax.set_ylabel('')
+        ax.axvline(theta_star[i], color='black', linestyle='--', linewidth = 1)  
+    fig.tight_layout()
+    if save_fig == True:
+        fig.savefig(fname)
+      
+    return fig, ax_array
+
+
+def plot_gauss_4d_3(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_fig=False):
+    compare = 2
+    p = len(theta_star)
+    theta_data = np.zeros((p,compare*B))
+    for i in range(p):
+        theta_data[i,:] = np.concatenate((thetas_mmd[i,n_cont,:],thetas_mabc[i,n_cont,:]))
+            
+    model_name_data = np.concatenate((['NPL-MMD']*B, ['NPL-WAS']*B))
+    columns = []
+    for i in range(p):
+         columns.append('theta_{}'.format(i))  
+    columns.append('method')
+    theta_data = np.reshape(theta_data,(p,compare*B))
+    df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(p) }) 
+    df_all['method'] =  model_name_data
+    #titles = ['{} % of outliers'.format(i*5) for i in range(n_cont)]
+    axes=[]
+    colors = ['#e41a1c', '#0072B2'] #'#D55E00' '#e41a1c'
+    for i in range(2):
+        
+        if i == 0:
+            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i), y="theta_{}".format(i+1), hue="method", palette=colors, hue_order=['NPL-WAS','NPL-MMD']) #, xlim=(0.6,2),ylim=(-2,2.2))##, ylim=(-4,3))
+            ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
+            ax.set_axis_labels(r'$\theta_1$', r'$\theta_2$', fontsize=18)
+            ax.ax_joint.axvline(x=theta_star[0], color='black', linestyle='--', linewidth = 1)  
+            ax.ax_joint.axhline(y=theta_star[1], color='black', linestyle='--', linewidth = 1) 
+        elif i == 1:
+            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i+1), y="theta_{}".format(i+2), hue="method", palette=colors,   hue_order=['NPL-WAS','NPL-MMD']) #, xlim=(0.5,6), ylim=(0,6)) #
+            ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6)
+            ax.set_axis_labels(r'$\exp(\theta_3)$', r'$\exp(\theta_4)$', fontsize=18)
+            ax.ax_joint.axvline(x=theta_star[2], color='black', linestyle='--', linewidth = 1)  
+            ax.ax_joint.axhline(y=theta_star[3], color='black', linestyle='--', linewidth = 1)  
+        #ax.fig.suptitle(titles[i])
+        ax.fig.tight_layout()
+        ax.fig.subplots_adjust(top=0.95)
+        axes.append(ax)
+        if save_fig:
+            plt.savefig(fname+'_{}_theta12.png'.format(i))
+            
+#    for i in range(n_cont):
+#        if i == 0:
+#            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method",  palette=colors, hue_order=['NPL-WAS','NPL-MMD']) #ylim=(-0.5,4))#,#)
+#        elif i == 1:
+#            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD'])#)
+#        else:
+#            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD'])#)
+#        ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
+#        ax.set_axis_labels(r'$\exp(\theta_3)$', r'$\exp(\theta_4)$', fontsize=18)
+#        ax.ax_joint.axvline(x=theta_star[2], color='black', linestyle='--', linewidth = 1)  
+#        ax.ax_joint.axhline(y=theta_star[3], color='black', linestyle='--', linewidth = 1)  
+#        #ax.fig.suptitle(titles[i])
+#        ax.fig.tight_layout()
+#        ax.fig.subplots_adjust(top=0.95)
+#        axes.append(ax)
+        if save_fig:
+            plt.savefig(fname+'_{}_theta34.png'.format(i))
+    
+    return axes
+
 
 class SeabornFig2Grid():
 
