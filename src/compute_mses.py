@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from utils import mse
 
-#%%
+### This script loads results and computes normalized MSE over multiple runs ###
 # Gaussian 
 
 data_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/Gaussian_location_model/"
