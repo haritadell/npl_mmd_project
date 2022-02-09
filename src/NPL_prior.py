@@ -62,7 +62,8 @@ class npl_prior():
         
     def draw_single_sample(self, weights, pseudo_samples):
         """ Draws a single sample from the nonparametric posterior specified via
-        the model and the data X"""
+            observed data X, pseudo data from the prior centering measure
+            and Dirichelt weights"""
         
         # compute weighted log-likelihood minimizer for Gaussian model
         if self.model_name == 'gaussian':
@@ -79,6 +80,8 @@ class npl_prior():
         return theta_j , wll_j 
     
     def loss(self, rng, theta):
+        """Given parameter theta it approximates the MMD loss between P_theta and empirical measure P_n"""
+        
         y = self.model.sample(theta)
         kxy = k_comp(y,self.X)
         kyy = k_comp(y,y)
@@ -87,6 +90,8 @@ class npl_prior():
     
 
     def find_initial_params(self):
+        """Function to find optimisation starting point for the toggle switch model"""
+        
         def sample_theta_init(rng):
           param_range = (jnp.array([0.01, 0.01, 0.01, 0.01, 250.0, 0.01, 0.01]), jnp.array([50.0, 50.0, 5.0, 5.0, 450.0, 0.5, 0.4]))
           lower, upper = param_range
@@ -143,9 +148,7 @@ class npl_prior():
         self.wll_sample = np.array(wll_samples)
         
     def MMD_approx(self,kxy,kyy):
-        """ Approximation of the squared MMD between the model represented by y_{i=1}^m iid sample and
-        a sample from the DP posterior
-        """
+        """ Approximation of the squared MMD given gram matrices kxy and kyy"""
         
         # first sum
         diag_elements = jnp.diag_indices_from(kyy)
@@ -164,9 +167,9 @@ class npl_prior():
         
     
     def minimise_MMD(self, data, weights, Nstep=1000, eta=0.1, batch_size=200):
-        """Function to minimise the MMD using adam optimisation from jax"""
-        #batch_size = self.n 
-        #params=jnp.zeros(self.p)
+        """Function to minimise the MMD using adam optimisation in JAX -- use this function for 
+        the Gaussian and G-and-k models"""
+        
         params = jnp.ones(self.p)
         if self.model_name == 'gandk':
             batch_size = self.n
@@ -199,7 +202,6 @@ class npl_prior():
         opt_state = opt_init(params)
         itercount = itertools.count()
 
-        #grad_fn = vmap(jit(grad(obj_fun, argnums=0)), in_axes=(None, 0, None, None))
         grad_fn = vmap(jit(value_and_grad(obj_fun, argnums=0)), in_axes=(None, 0, None, None))
         
         def step(step, opt_state, batches, key):
@@ -241,9 +243,9 @@ class npl_prior():
         return best_theta#get_params(opt_state)
     
     def minimise_MMD_togswitch(self, data, weights, Nstep=2000, eta=0.04, batch_size=2000):
-        """Function to minimise the MMD for the toggle switch model using 
-        adam optimisation from jax"""
-        #batch_size = self.n
+        """Function to minimise the MMD for the Toggle switch model using 
+        Adam optimisation in JAX"""
+        
         config.update("jax_enable_x64", True)
         num_batches = self.n//batch_size
         
@@ -289,7 +291,8 @@ class npl_prior():
             batches = []
             for _ in range(num_batches):
               key, subkey = jax.random.split(key)
-              batch_x = jax.random.choice(key, a=data.flatten(), shape=(batch_size,1), p=weights).reshape(-1,1)
+              inds = jax.random.choice(subkey, a=self.n+self.T, shape=(batch_size,), p=weights) #default is with replacement
+              batch_x = jnp.take(a=data, indices=inds, axis=0)
               batches.append(batch_x)
 
             batches = jnp.array(batches)
@@ -303,7 +306,7 @@ class npl_prior():
               best_theta = get_params(opt_state)
               return smallest_loss, best_theta 
             def false_func(args):
-              value, smallest_loss, best_theta, opt_state = args[0], args[1], args[2], args[3]
+              _, smallest_loss, best_theta, _ = args[0], args[1], args[2], args[3]
               smallest_loss = jnp.array(smallest_loss, dtype='float64')
               return smallest_loss, best_theta
             smallest_loss, best_theta = jax.lax.cond(pred, true_func, false_func, [value, smallest_loss, best_theta, opt_state])
@@ -321,31 +324,3 @@ class npl_prior():
         
         return best_theta
         
-        
-    def WLL(self, data, weights):
-        """Get weighted log likelihood minimizer, for gaussian model""" 
-        
-        theta = np.zeros(self.d)
-        print(np.shape(weights))
-        for i in range(self.n):
-            theta += weights[i]*data[i,:] 
-        return theta
-    
-    def minimise_wasserstein(self, data, weights):
-        """This function minimises the wasserstein distance 
-        instead of the MMD using scipy optimizer Powell"""
-        
-        def wasserstein(theta):
-            a = np.ones((self.m,)) / self.m 
-            b = weights 
-            sample = self.model.sample(theta)
-         
-            M = ot.dist(sample, data, 'euclidean')
-
-            W = ot.emd2(a, b, M)
-            return W
-        
-        optimization_result = minimize(wasserstein, np.zeros(self.p), method= 'Powell', options={'disp': True, 'maxiter': 20000})
-        print(optimization_result.x)
-        # return the value at optimum
-        return optimization_result.x
