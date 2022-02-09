@@ -4,7 +4,9 @@
 Created on Fri Mar  5 17:57:30 2021
 
 
-Contains functions related to: Gaussian kernel and its derivatives, sampling from gaussian, g-and-k and toggle switch models using generators
+Contains functions related to: Gaussian kernel and its derivatives, sampling 
+from gaussian, g-and-k and toggle switch models using generators, MMD approximation function 
+and computation of MSE
 """
 
 import numpy as np
@@ -199,8 +201,6 @@ def sample_gandk_outl(n,d,theta, n_cont = 0):
     else:
         x = gen_gandk(z,theta)
     
-    #outl = np.asmatrix(np.random.normal(loc=5,scale=1,size=cont_size)).transpose()
-
     return np.asarray(x) 
     
 
