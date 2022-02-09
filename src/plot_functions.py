@@ -12,7 +12,6 @@ import math
 import matplotlib.gridspec as gridspec
 import seaborn as sns; sns.set()
 
-# Density plots 
 def plot_posterior_marginals(B,thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thetas_npl_was, theta_star, n_cont, fname, gaussian=False, save_fig=False):
     """Plot the posterior marginal densities obtained from the parameter sample"""
     if gaussian==True:
@@ -53,8 +52,8 @@ def plot_posterior_marginals(B,thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thet
         ax.set_xlabel(r'$\theta_{}$'.format(math.floor(i/n_cont)+1),  fontsize=15)
         ax.set_ylabel('')
         if i <3:
-            ax.set_title(titles[i%3], fontsize=15) #i%3
-        ax.axvline(theta_star[math.floor(i/n_cont)], color='black', linestyle='--', linewidth = 1)  #prepei na ftiaxw ta indexes  #
+            ax.set_title(titles[i%3], fontsize=15) 
+        ax.axvline(theta_star[math.floor(i/n_cont)], color='black', linestyle='--', linewidth = 1)  
     fig.tight_layout()
     if save_fig == True:
         fig.savefig(fname)
@@ -102,72 +101,20 @@ def plot_mse(thetas_wabc, thetas_npl_mmd, thetas_npl_wll, thetas_npl_was, mse_ML
         if gaussian == True:
             ax_array.plot(np.linspace(0,5*(n_cont-1),n_cont), mse_WLL[:,j], 'g-', label='NPL-WLL')
             #ax_array.plot(np.linspace(0,5*(n_cont-1),n_cont), mse_WAS[:,j], 'y-', label='NPL-WAS')
-            #ax_array.plot(np.linspace(0,5*(n_cont-1),n_cont), mse_MLE[:,j], 'c-', label='MLE')
         ax_array.legend(loc='best', ncol=1)
-        #ax.get_frame().set_alpha(0.5)
         ax_array.set_xlabel('Percentage of outliers',fontsize='x-large')
         ax_array.set_ylabel('MSE',fontsize='x-large')
-        #ax_array.set_title('theta {}'.format(j+1))
         ax_array.set_title('MSE for the mean of the univariate Gaussian distribution')
     if save_fig == True:
         fig.savefig(fname)
     fig.tight_layout() 
     return fig, ax_array
 
-
-def plot_bivariate_gaussian(B,thetas_wabc, thetas_mmd, thetas_wll, theta_star, n_cont, fname, save_fig=False):
-    compare = 3
-    p = len(theta_star)
-    theta_data = np.zeros((p,n_cont,compare*B))
-    for i in range(p):
-        for j in np.arange(n_cont):
-            theta_data[i,j,:] = np.concatenate((thetas_mmd[i,j,:],thetas_wabc[i,j,:],thetas_wll[i,j,:]))
-            
-    model_name_data = np.concatenate((['NPL-MMD']*B,['WABC']*B,['NPL-WLL']*B))
-    columns = []
-    for i in range(n_cont*p):
-         columns.append('theta_{}'.format(i))  
-    columns.append('method')
-    theta_data = np.reshape(theta_data,(n_cont*p,compare*B))
-    df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(n_cont*p) }) 
-    df_all['method'] =  model_name_data
-    titles = ['{} % of outliers'.format(i*5) for i in range(n_cont)]
-    
-    ax1 = sns.jointplot(data=df_all, x="theta_0", y="theta_3", hue="method", kind='kde', shade=True, multiple="layer",alpha=0.6)
-    ax1.set_axis_labels('theta_1', 'theta_2')
-    ax1.ax_joint.axvline(x=theta_star[0], color='black', linestyle='--', linewidth = 1)  
-    ax1.ax_joint.axhline(y=theta_star[0], color='black', linestyle='--', linewidth = 1)  
-    ax1.fig.suptitle(titles[0])
-    ax1.fig.tight_layout()
-    ax1.fig.subplots_adjust(top=0.95)
-    if save_fig:
-        plt.savefig(fname+'_0.png')
-    
-    ax2 = sns.jointplot(data=df_all, x="theta_1", y="theta_4", hue="method", kind='kde', shade=True, multiple="layer",alpha=0.6)
-    ax2.set_axis_labels('theta_1', 'theta_2')
-    ax2.ax_joint.axvline(x=theta_star[0], color='black', linestyle='--', linewidth = 1)  
-    ax2.ax_joint.axhline(y=theta_star[0], color='black', linestyle='--', linewidth = 1)  
-    ax2.fig.suptitle(titles[1])
-    ax2.fig.tight_layout()
-    ax2.fig.subplots_adjust(top=0.95)
-    if save_fig:
-        plt.savefig(fname+'_1.png')
-    
-    ax3 = sns.jointplot(data=df_all, x="theta_2", y="theta_5", hue="method", kind='kde', shade=True, multiple="layer",alpha=0.6)
-    ax3.set_axis_labels('theta_1', 'theta_2')
-    ax3.ax_joint.axvline(x=theta_star[0], color='black', linestyle='--', linewidth = 1)  
-    ax3.ax_joint.axhline(y=theta_star[0], color='black', linestyle='--', linewidth = 1)  
-    ax3.fig.suptitle(titles[2])
-    ax3.fig.tight_layout()
-    ax3.fig.subplots_adjust(top=0.95)
-    if save_fig:
-        plt.savefig(fname+'_2.png')
-        
-    return ax1, ax2, ax3
-        
-        
 def plot_gnk(B,thetas_wabc, thetas_mmd, theta_star, n_cont, fname, save_fig=False):
-    compare = 2
+    """Plot function for posterior maginal distributions obtained for the G-and-k distribution.
+    This function produces the individual axes which are then passed on the SeabornFig2Grid class"""
+    
+    compare = 2 # How many methods are we comparing 
     p = len(theta_star)
     theta_data = np.zeros((p,n_cont,compare*B))
     for i in range(p):
@@ -218,7 +165,7 @@ def plot_gnk(B,thetas_wabc, thetas_mmd, theta_star, n_cont, fname, save_fig=Fals
 
 
 def plot_posterior_marg_ts(B,thetas_wabc, thetas_npl_mmd, theta_star, y, fname, save_fig=False):
-    """Plot the posterior marginal densities obtained from the parameter sample"""
+    """Plot the posterior marginal densities obtained for the Toggle switch model"""
     
     compare = 2
     p = len(theta_star)
@@ -310,14 +257,17 @@ def plot_posterior_marg_ts(B,thetas_wabc, thetas_npl_mmd, theta_star, y, fname, 
 
 
 def plot_gauss_4d(B,thetas_wabc, thetas_mmd, thetas_wll, thetas_was, theta_star, n_cont, fname, save_fig=False):
-    compare = 3
+    """Plots posterior marginal densities for the Gaussian location model with d=4 in bivariate plots.
+    This function produces the individual axes which are then passed on the SeabornFig2Grid class"""
+    
+    compare = 3 # Compare three methods
     p = len(theta_star)
     theta_data = np.zeros((p,n_cont,compare*B))
     for i in range(p):
         for j in np.arange(n_cont):
-            theta_data[i,j,:] = np.concatenate((thetas_mmd[i,j,:],thetas_wabc[i,j,:], thetas_wll[i,j,:])) #thetas_was[i,j,:]
+            theta_data[i,j,:] = np.concatenate((thetas_mmd[i,j,:],thetas_wabc[i,j,:], thetas_wll[i,j,:])) 
             
-    model_name_data = np.concatenate((['NPL-MMD']*B, ['WABC']*B, ['NPL-WLL']*B)) #['NPL-WAS']*B
+    model_name_data = np.concatenate((['NPL-MMD']*B, ['WABC']*B, ['NPL-WLL']*B)) 
     columns = []
     for i in range(n_cont*p):
          columns.append('theta_{}'.format(i))  
@@ -329,8 +279,8 @@ def plot_gauss_4d(B,thetas_wabc, thetas_mmd, thetas_wll, thetas_was, theta_star,
     
     axes = []
     
-    colors = ['#0072B2', '#D55E00', '#009E73'] #,'#e31a1c']  
-    order = [ 'NPL-MMD', 'WABC', 'NPL-WLL'] #'NPL-WAS',
+    colors = ['#0072B2', '#D55E00', '#009E73']   
+    order = [ 'NPL-MMD', 'WABC', 'NPL-WLL'] 
     for i in range(n_cont):
         
         if i == 0:
@@ -363,7 +313,6 @@ def plot_gauss_4d(B,thetas_wabc, thetas_mmd, thetas_wll, thetas_was, theta_star,
         ax.set_axis_labels(r'$\exp(\theta_3)$', r'$\exp(\theta_4)$', fontsize=18)
         ax.ax_joint.axvline(x=theta_star[2], color='black', linestyle='--', linewidth = 1)  
         ax.ax_joint.axhline(y=theta_star[3], color='black', linestyle='--', linewidth = 1)  
-        #ax.fig.suptitle(titles[i])
         ax.fig.tight_layout()
         ax.fig.subplots_adjust(top=0.95)
         axes.append(ax)
@@ -432,67 +381,10 @@ def plot_posterior_marg_tsols(B,thetas_wabc, thetas_npl_mmd, theta_star, y, fnam
       
     return fig, ax_array
 
-def plot_gauss_4d_mmd_vs_was(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_fig=False):
-    compare = 2
-    p = len(theta_star)
-    theta_data = np.zeros((p,n_cont,compare*B))
-    for i in range(p):
-        for j in np.arange(n_cont):
-            theta_data[i,j,:] = np.concatenate((thetas_mmd[i,j,:],thetas_mabc[i,j,:]))
-            
-    model_name_data = np.concatenate((['NPL-MMD']*B, ['NPL-WAS']*B))
-    columns = []
-    for i in range(n_cont*p):
-         columns.append('theta_{}'.format(i))  
-    columns.append('method')
-    theta_data = np.reshape(theta_data,(n_cont*p,compare*B))
-    df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(n_cont*p) }) 
-    df_all['method'] =  model_name_data
-    titles = ['{} % of outliers'.format(i*5) for i in range(n_cont)]
-    axes=[]
-    colors = ['#0072B2', '#D55E00']      
-    for i in range(n_cont):
-        
-        if i == 0:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors, hue_order=['NPL-WAS','NPL-MMD'], xlim=(0.6,2))##, ylim=(-4,3))
-            ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6)
-        elif i == 1:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors,   hue_order=['NPL-WAS','NPL-MMD']) #
-            ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
-        else:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont), y="theta_{}".format(i%n_cont+n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD']) #)
-            ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
-        ax.set_axis_labels(r'$\theta_1$', r'$\theta_2$', fontsize=18)
-        ax.ax_joint.axvline(x=theta_star[0], color='black', linestyle='--', linewidth = 1)  
-        ax.ax_joint.axhline(y=theta_star[1], color='black', linestyle='--', linewidth = 1)  
-        ax.fig.suptitle(titles[i])
-        ax.fig.tight_layout()
-        ax.fig.subplots_adjust(top=0.95)
-        axes.append(ax)
-        if save_fig:
-            plt.savefig(fname+'_{}_theta12.png'.format(i))
-            
-    for i in range(n_cont):
-        if i == 0:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method",  palette=colors, hue_order=['NPL-WAS','NPL-MMD']) #ylim=(-0.5,4))#,#)
-        elif i == 1:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD'])#)
-        else:
-            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD'])#)
-        ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
-        ax.set_axis_labels(r'$\exp(\theta_3)$', r'$\exp(\theta_4)$', fontsize=18)
-        ax.ax_joint.axvline(x=theta_star[2], color='black', linestyle='--', linewidth = 1)  
-        ax.ax_joint.axhline(y=theta_star[3], color='black', linestyle='--', linewidth = 1)  
-        #ax.fig.suptitle(titles[i])
-        ax.fig.tight_layout()
-        ax.fig.subplots_adjust(top=0.95)
-        axes.append(ax)
-        if save_fig:
-            plt.savefig(fname+'_{}_theta34.png'.format(i))
-    
-    return axes
-
 def plot_posterior_marginals_mmd_vs_mabc(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_fig=False):
+    """Plots posterior marginal densities for the Gaussian location model with d=4 in bivariate plots for 
+    the NPL-MMD and the MMD-ABC. This function produces the individual axes which are then passed
+    on the SeabornFig2Grid class"""
     
     compare = 2
     p = len(theta_star)
@@ -509,8 +401,7 @@ def plot_posterior_marginals_mmd_vs_mabc(B,thetas_mmd, thetas_mabc, theta_star, 
     theta_data = np.reshape(theta_data,(p,compare*B))
     df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(p) }) 
     df_all['method'] =  model_name_data
-    fig, ax_array = plt.subplots(1, p, figsize=(8,2.5))  #(20,8)
-    #titles = [r'$\epsilon = {}$'.format((n_cont)*0.05)]
+    fig, ax_array = plt.subplots(1, p, figsize=(8,2.5))  
     colors = ['#0072B2', '#D55E00', '#009E73','#dede00'] 
     
     for ax, i in zip(ax_array.flatten(), range(0, p)):
@@ -533,6 +424,10 @@ def plot_posterior_marginals_mmd_vs_mabc(B,thetas_mmd, thetas_mabc, theta_star, 
 
 
 def plot_gauss_4d_3(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_fig=False):
+    """Plots posterior marginal densities for the Gaussian location model with d=4 in bivariate plots for 
+    the NPL-MMD and the NPL-WAS. This function produces the individual axes which are then passed
+    on the SeabornFig2Grid class"""
+    
     compare = 2
     p = len(theta_star)
     theta_data = np.zeros((p,compare*B))
@@ -547,9 +442,8 @@ def plot_gauss_4d_3(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_f
     theta_data = np.reshape(theta_data,(p,compare*B))
     df_all = pd.DataFrame({'theta_{}'.format(k): theta_data[k,:] for k in range(p) }) 
     df_all['method'] =  model_name_data
-    #titles = ['{} % of outliers'.format(i*5) for i in range(n_cont)]
     axes=[]
-    colors = ['#e41a1c', '#0072B2'] #'#D55E00' '#e41a1c'
+    colors = ['#e41a1c', '#0072B2'] 
     for i in range(2):
         
         if i == 0:
@@ -570,30 +464,14 @@ def plot_gauss_4d_3(B,thetas_mmd, thetas_mabc, theta_star, n_cont, fname, save_f
         axes.append(ax)
         if save_fig:
             plt.savefig(fname+'_{}_theta12.png'.format(i))
-            
-#    for i in range(n_cont):
-#        if i == 0:
-#            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method",  palette=colors, hue_order=['NPL-WAS','NPL-MMD']) #ylim=(-0.5,4))#,#)
-#        elif i == 1:
-#            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD'])#)
-#        else:
-#            ax = sns.JointGrid(data=df_all, x="theta_{}".format(i%n_cont+2*n_cont), y="theta_{}".format(i%n_cont+3*n_cont), hue="method", palette=colors,  hue_order=['NPL-WAS','NPL-MMD'])#)
-#        ax.plot(sns.kdeplot, sns.kdeplot, shade=True, multiple="layer",alpha=0.6, legend=False)
-#        ax.set_axis_labels(r'$\exp(\theta_3)$', r'$\exp(\theta_4)$', fontsize=18)
-#        ax.ax_joint.axvline(x=theta_star[2], color='black', linestyle='--', linewidth = 1)  
-#        ax.ax_joint.axhline(y=theta_star[3], color='black', linestyle='--', linewidth = 1)  
-#        #ax.fig.suptitle(titles[i])
-#        ax.fig.tight_layout()
-#        ax.fig.subplots_adjust(top=0.95)
-#        axes.append(ax)
-        if save_fig:
-            plt.savefig(fname+'_{}_theta34.png'.format(i))
     
     return axes
 
 
 class SeabornFig2Grid():
-
+    """Class taken from https://stackoverflow.com/questions/35042255/how-to-plot-multiple-seaborn-jointplot-in-subplot
+    which allows to put multiple JointPlots into figure with multiple subplots"""
+    
     def __init__(self, seaborngrid, fig,  subplot_spec, title, add_title=False):
         self.fig = fig
         self.sg = seaborngrid
