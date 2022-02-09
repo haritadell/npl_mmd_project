@@ -4,4 +4,4 @@
 - `NPL.py` contains the necessary code to perform inference for any model in `models.py` using the Posterior Bootstrap for the case α = 0 in the DP prior.
 - `NPL_prior.py` contains the necessary code to perform inference for any model in `models.py` using the Posterior Bootstrap. 
 -  `plot_functions` contains funcctions for the plots used in the paper.
--  `compute_times_and_mses.py` computes MSE over multiple runs and CPU times. 
+-  `compute_mses.py` computes MSEs over multiple runs. 
