@@ -14,7 +14,7 @@ A more detailed README file can be found inside the `src` folder.
 
 ## Reproducing experiments 
 - The folder `data` contains all the datasets used for the experiments.
-- All scripts have paths to folders `data`, `results` and  `plots`. You create such folders or set your own paths. 
+- All scripts have paths to folders named `data`, `results` and  `plots`. You can create such folders or set your own paths. 
 - To reproduce the experiments for the NPL based methods (i.e. NPL-MMD, NPL-WAS and NPL-WLL) locally, run `run_gaussian.py`, `run_gandk.py` and `run_togswitch.py` by setting the relevant data/results/plots paths 
 directly after imports and indicating whether you want to generate new datasets or use the ones used in the paper (located in `data` folder). 
 The files will run, save and plot the results to the relevant paths. Alternatively, the notebook `Experiments_notebook.ipynb` is optimised for use with [Google colab](https://colab.research.google.com/).
