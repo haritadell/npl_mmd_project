@@ -23,9 +23,9 @@ import matplotlib.pyplot as plt
 # 3) experiments are run for multiple runs - index which run you want plots for
 
 # Paths
-data_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/Gaussian_location_model/"
-results_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/Gaussian_location_model/"
-plots_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/plots/"
+data_path = "/data/Gaussian_location_model/"
+results_path = "/results/Gaussian_location_model/"
+plots_path = "/plots/Gaussian_location_model/"
 
 # Set to True to generate and save fresh datasets or False to load saved datasets
 sample_data_bool = False
