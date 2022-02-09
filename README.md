@@ -2,8 +2,8 @@
 This repository contains all code needed to recreate the results in the paper "Robust Bayesian Inference for Simulator-based models via the MMD Posterior Bootstrap" by 
 Charita Dellaporta, Jeremias Knoblauch, Theodoros Damoulas and François-Xavier Briol. The code for the MMD posterior bootstrap is written in Python. Our method uses [JAX](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html) which is 
 compatible with GPU usage, hence we provide both the files needed to run experiments locally and an .ipynb file compatible for use with Google Colaboratory. 
-We use the R code provided by Bernton, Jacob, Gerbert & Robert (2019) [here](https://github.com/pierrejacob/winference/tree/master/inst/reproduceabc) to compare against ABC with the Wasserstein 
-distance. More detailed README files can be found inside the `src` subfolder.
+We use the R code (`ABC_Rcode` folder) provided by Bernton, Jacob, Gerbert & Robert (2019) [here](https://github.com/pierrejacob/winference/tree/master/inst/reproduceabc) to compare against ABC with the Wasserstein distance as well as the code by Pacchiardi & Dutta (2021) [here](https://github.com/LoryPack/GenBayes_LikelihoodFree_ScoringRules) to compare against MMD-Bayes with the kernel score (Appendix, Figure 10).
+A more detailed README file can be found inside the `src` folder.
 
 ## Requirements 
 - Python == 3.7.*
