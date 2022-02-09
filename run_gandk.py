@@ -25,9 +25,9 @@ import time
 # 3) Experiments are run for multiple runs - index which run you want plots for
 
 # Set paths
-data_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/G_and_k_model/"
-results_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/G_and_k_model/"
-plots_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/Plots/G_and_k/"
+data_path = "/data/G_and_k_model/"
+results_path = "/results/G_and_k_model/"
+plots_path = "/plots/G_and_k/"
 
 # Set to True to generate and save fresh datasets or False to load saved datasets
 sample_data_bool = False

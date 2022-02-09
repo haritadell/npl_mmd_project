@@ -20,9 +20,9 @@ import time
 # 2) Indicate whether you want a fresh dataset or to load existing one 
 # 3) experiments are run for multiple runs - index which run you want plots for
 
-data_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/data/Toggle_switch_model/"
-results_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/results/Toggle_switch_model/"
-plots_path = "/Users/HaritaDellaporta/Dropbox/mmd_project_code/Plots/Toggle_switch/" 
+data_path = "/data/Toggle_switch_model/"
+results_path = "/results/Toggle_switch_model/"
+plots_path = "/plots/Toggle_switch/" 
 
 # Set to True to generate and save fresh datasets or False to load saved datasets
 sample_data_bool = False
