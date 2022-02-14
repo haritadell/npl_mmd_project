@@ -12,27 +12,6 @@ import jax.numpy as jnp
 from jax.scipy import stats as jstats
 from jax.ops import index, index_update
 
-class Model():
-    """An empty/abstract class that dictates the necessary functions a model type class 
-    should have"""
-    
-    def __init__(self, m, params):
-        self.m = m  # number of points sampled from the model at each optim. iteration
-        self.params = params # hyperparameters relevant to each model
-        
-    def generetor(self, u, theta):
-        """Generates samples from the simulator for parameter theta after 
-        providing iid samples u"""
-        return 0
-    
-    def grad_generator(self, u, theta):
-        """Gradient of the generator with respect to theta"""
-        return 0
-        
-    def sample(self, theta):
-        """Given parameter theta returns m samples from the generator"""
-        return 0 
-
 class gauss_model():
     
     def __init__(self, m, d, s):
