@@ -20,7 +20,9 @@ directly after imports and indicating whether you want to generate new datasets 
 The files will run, save and plot the results to the relevant paths. Alternatively, the notebook `Experiments_notebook.ipynb` is optimised for use with [Google colab](https://colab.research.google.com/).
 The notebook mounts your google drive and calls all the relevant py scripts so you need to import the `src` folder in your google drive. 
 - To run the experiments for the same datasets using the Wasserstein-ABC method run the `run_wabc_experiments.R` file which is entirely based on the code provided
-by the authors in Bernton et al. (2019). 
+by the authors in Bernton, Jacob, Gerbert & Robert (2019). 
 
-
+## References
+- Bernton, E., Jacob, P.E., Gerber, M. and Robert, C.P., 2019. Approximate Bayesian computation with the Wasserstein distance. Journal of the Royal Statistical Society: Series B (Statistical Methodology), 81(2), pp.235-269
+- Pacchiardi, L. and Dutta, R., 2021. Generalized Bayesian likelihood-free inference using scoring rules estimators. arXiv preprint arXiv:2104.03889
 
