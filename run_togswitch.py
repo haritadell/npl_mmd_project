@@ -47,7 +47,8 @@ l = 1
 ## Sample or load R sets of data
 if sample_data_bool:
     for j in range(R):
-        X, noise, y = sample_togswitch_noise(theta_star,n,T,df,add_noise=True)
+        theta_star_rep = np.array([np.log(22),np.log(12),4.,4.5,np.log(325),np.log(0.25),0.15]) #reparametrise
+        X, noise, y = sample_togswitch_noise(theta_star_rep,n,T,df,add_noise=True)
         np.savetxt(data_path+'run_{}'.format(j), X)
         if j == 0:
             np.savetxt(data_path+'run_{}_y'.format(j), y)
