@@ -28,7 +28,7 @@ import time
 
 # Set paths
 data_path = "./data/G_and_k_model/"
-results_path = "./results/" #G_and_k_model/"
+results_path = "./results/G_and_k_model/"
 plots_path = "./plots/G_and_k/"
 
 # Set to True to generate and save fresh datasets or False to load saved datasets

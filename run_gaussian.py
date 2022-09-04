@@ -6,6 +6,9 @@ Created on Wed Sep 29 16:36:07 2021
 @author: HaritaDellaporta
 """
 
+import sys
+sys.path.append("./src")
+
 from utils import sample_gaussian_outl
 from plot_functions import SeabornFig2Grid, plot_gauss_4d_mmd_vs_was, plot_gauss_4d, plot_posterior_marginals_mmd_vs_mabc
 import NPL
@@ -23,9 +26,9 @@ import matplotlib.pyplot as plt
 # 3) experiments are run for multiple runs - index which run you want plots for
 
 # Paths
-data_path = "/data/Gaussian_location_model/"
-results_path = "/results/Gaussian_location_model/"
-plots_path = "/plots/Gaussian_location_model/"
+data_path = "./data/Gaussian_location_model/"
+results_path = "./results/Gaussian_location_model/"
+plots_path = "./plots/Gaussian_location_model/"
 
 # Set to True to generate and save fresh datasets or False to load saved datasets
 sample_data_bool = False

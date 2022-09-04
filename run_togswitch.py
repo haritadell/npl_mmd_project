@@ -6,6 +6,9 @@ Created on Wed Sep 29 19:05:26 2021
 @author: HaritaDellaporta
 """
 
+import sys
+sys.path.append("./src")
+
 from utils import sample_togswitch_noise
 from plot_functions import plot_posterior_marg_tsols
 import NPL
@@ -20,9 +23,9 @@ import time
 # 2) Indicate whether you want a fresh dataset or to load existing one 
 # 3) experiments are run for multiple runs - index which run you want plots for
 
-data_path = "/data/Toggle_switch_model/"
-results_path = "/results/Toggle_switch_model/"
-plots_path = "/plots/Toggle_switch/" 
+data_path = "./data/Toggle_switch_model/"
+results_path = "./results/Toggle_switch_model/"
+plots_path = "./plots/Toggle_switch/" 
 
 # Set to True to generate and save fresh datasets or False to load saved datasets
 sample_data_bool = False
