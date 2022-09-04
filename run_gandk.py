@@ -5,6 +5,8 @@ Created on Wed Sep 29 18:55:21 2021
 
 @author: HaritaDellaporta
 """
+import sys
+sys.path.append("./src")
 
 from utils import sample_gandk_outl, k, MMD_approx
 from plot_functions import plot_gnk, SeabornFig2Grid
@@ -25,9 +27,9 @@ import time
 # 3) Experiments are run for multiple runs - index which run you want plots for
 
 # Set paths
-data_path = "/data/G_and_k_model/"
-results_path = "/results/G_and_k_model/"
-plots_path = "/plots/G_and_k/"
+data_path = "./data/G_and_k_model/"
+results_path = "./results/" #G_and_k_model/"
+plots_path = "./plots/G_and_k/"
 
 # Set to True to generate and save fresh datasets or False to load saved datasets
 sample_data_bool = False
