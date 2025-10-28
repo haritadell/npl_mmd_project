@@ -17,9 +17,7 @@ from scipy.optimize import minimize
 import jax.numpy as jnp
 import jax
 from jax import vmap, value_and_grad, jit
-from jax.ops import index_update, index
-from jax.config import config
-from jax.experimental import optimizers
+from jax.example_libraries import optimizers
 
 
 # NPL class
@@ -139,7 +137,7 @@ class npl():
         
         # first sum
         diag_elements = jnp.diag_indices_from(kyy)
-        kyy = index_update(kyy, diag_elements, jnp.repeat(0,self.m))
+        kyy = kyy.at[diag_elements].set(jnp.repeat(0,self.m)) #index_update(kyy, diag_elements, jnp.repeat(0,self.m))
         sum1 = jnp.sum(kyy)
     
         # second sum
@@ -147,7 +145,7 @@ class npl():
 
         # third sum 
         diag_elements = jnp.diag_indices_from(self.kxx)
-        kxx = index_update(self.kxx, diag_elements, jnp.repeat(0,self.n))
+        kxx = self.kxx.at[diag_elements].set(jnp.repeat(0,self.n)) #index_update(self.kxx, diag_elements, jnp.repeat(0,self.n))
         sum3 = jnp.sum(kxx)
     
         return (1/(self.m*(self.m-1)))*sum1-(2/(self.n*self.m))*sum2+(1/(self.n*(self.n-1)))*sum3
@@ -162,7 +160,7 @@ class npl():
             batch_size = self.n
             params = jnp.array([5.,5.,5.,5.])
         
-        config.update("jax_enable_x64", True)
+        jax.config.update("jax_enable_x64", True)
         num_batches = self.n//batch_size
         
         # objective function to feed the optimizer
@@ -176,7 +174,7 @@ class npl():
 
             # first sum
             diag_elements = jnp.diag_indices_from(kyy)
-            kyy = index_update(kyy, diag_elements, jnp.repeat(0,self.m))
+            kyy = kyy.at[diag_elements].set(jnp.repeat(0,self.m)) #index_update(kyy, diag_elements, jnp.repeat(0,self.m))
             sum1 = jnp.sum(kyy)
     
             # second sum
@@ -233,7 +231,7 @@ class npl():
         """Function to minimise the MMD for the Toggle switch model using 
         Adam optimisation in JAX"""
         
-        config.update("jax_enable_x64", True)
+        jax.config.update("jax_enable_x64", True)
         num_batches = self.n//batch_size
         
         n_optimized_locations = 3
@@ -246,7 +244,7 @@ class npl():
 
             # first sum
             diag_elements = jnp.diag_indices_from(kyy)
-            kyy = index_update(kyy, diag_elements, jnp.repeat(0,self.m))
+            kyy = kyy.at[diag_elements].set(jnp.repeat(0,self.m)) #index_update(kyy, diag_elements, jnp.repeat(0,self.m))
             sum1 = jnp.sum(kyy)
     
             # second sum
@@ -297,7 +295,7 @@ class npl():
               return smallest_loss, best_theta
             smallest_loss, best_theta = jax.lax.cond(pred, true_func, false_func, [value, smallest_loss, best_theta, opt_state])
 
-          list_of_thetas = index_update(list_of_thetas, index[j,:], best_theta)
+          list_of_thetas = list_of_thetas.at[j,:].set(best_theta) #index_update(list_of_thetas, index[j,:], best_theta)
         
         losses = []
         seed = 12

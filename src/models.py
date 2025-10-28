@@ -10,7 +10,6 @@ import numpy as np
 from jax import grad, lax, jit, vmap, random
 import jax.numpy as jnp
 from jax.scipy import stats as jstats
-from jax.ops import index, index_update
 
 class gauss_model():
     
@@ -134,8 +133,8 @@ class toggle_switch_model():
         key = random.PRNGKey(seed)
         key, *key_inputs = random.split(key, num=T+1)
 
-        u = index_update(u, index[:], 10.)
-        v = index_update(v, index[:], 10.)
+        u = u.at[:].set(10.) #index_update(u, index[:], 10.)
+        v = v.at[:].set(10.) #index_update(v, index[:], 10.)
         init_list = jnp.array([u,v])
 
         def step(current_array,key):
@@ -183,18 +182,18 @@ class toggle_switch_model():
         phi_v_new = jnp.zeros(self.T)
 
 
-        u = index_update(u, index[0], 10.)
-        v = index_update(v, index[0], 10.)
+        u = u.at[0].set(10.) #index_update(u, index[0], 10.)
+        v = v.at[0].set(10.) #index_update(v, index[0], 10.)
 
         for t in range(0,self.T-1):
 
             u_new = u[t] +(alpha1/(1.+(v[t]**beta1)))-(1.+0.03*u[t])
             phi_u_new = jstats.norm.cdf(-2.*u_new)
-            u = index_update(u, index[t+1],u_new+0.5*jstats.norm.ppf(phi_u_new+uvals[t]*(1.-phi_u_new)))
+            u = u.at[t+1].set(u_new+0.5*jstats.norm.ppf(phi_u_new+uvals[t]*(1.-phi_u_new))) #index_update(u, index[t+1],u_new+0.5*jstats.norm.ppf(phi_u_new+uvals[t]*(1.-phi_u_new)))
 
             v_new = v[t] +(alpha2/(1.+(u[t]**beta2)))-(1.+0.03*v[t])
             phi_v_new = jstats.norm.cdf(-2.*v_new)
-            v = index_update(v, index[t+1], v_new+0.5*jstats.norm.ppf(phi_v_new+uvals[self.T+t]*(1.-phi_v_new)))
+            v = v.at[t+1].set(v_new+0.5*jstats.norm.ppf(phi_v_new+uvals[self.T+t]*(1.-phi_v_new)))#index_update(v, index[t+1], v_new+0.5*jstats.norm.ppf(phi_v_new+uvals[self.T+t]*(1.-phi_v_new)))
 
 
         lb = -(u[self.T-1] + mu) / (mu*sigma)*(u[self.T-1]**gamma)
