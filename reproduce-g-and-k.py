@@ -41,8 +41,8 @@ R = 1 # number of independent runs
 s=1 # std of Gaussian data
 
 #######################################################################
-###### Replace X here with your own datasets if you want  
-### X needs to be of dimensions R x outl x n where R is number of datasets, outl is number of outlier settings and n is number of observations
+###### Replace datasets here with your own datasets if you want  
+### datasets needs to be of dimensions R x outl x n where R is number of datasets, outl is number of outlier settings and n is number of observations
 
 ## Sample R sets of data
 if sample_data_bool:
